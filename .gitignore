@@ -1,0 +1,6 @@
+osm.local
+osmwidget.pro
+*.o
+Makefile
+osmwidget
+moc_*
