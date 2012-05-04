@@ -19,34 +19,37 @@ Way::Way(long idin) {
 }
 
 OsmDataSource::OsmDataSource() {
-  QSqlQuery query;
   db = QSqlDatabase::addDatabase("QSQLITE");
   db.setDatabaseName("osm.local");
   bool ok = db.open();
   
-  std::cout << db.driver()->hasFeature(QSqlDriver::Transactions) << std::endl;
+//   std::cout << db.driver()->hasFeature(QSqlDriver::Transactions) << std::endl;
   
   if(ok) {
+    QSqlQuery query;
     std::cout << "opened SQLite database okay" << std::endl;
-    query = db.exec(QString("SELECT name FROM sqlite_master WHERE type='table' AND name='nodes';"));
-    if(query.size() == -1) {
+    query.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='nodes'");
+//     std::cout << query.lastError().text().toStdString() << std::endl;
+    if(!query.next()) {
       // it's an empty (i.e. new) cache, make the tables
-      std::cout << query.isActive() << " " << query.isValid() << std::endl;
-      query.finish();
-      std::cout << query.isActive() << std::endl;
+//       std::cout << query.isActive() << " " << query.isValid() << std::endl;
+//       query.finish();
+//       std::cout << query.isActive() << std::endl;
       std::cout << "initialising a new cache in osm.local" << std::endl;
-      query = db.exec(QString("CREATE TABLE nodes (id INTEGER PRIMARY KEY, lat REAL, lon REAL)"));
-      if(!db.commit()) {
-        std::cout <<"well that didn't work" << std::endl;
-        std::cout << query.lastError().text().toStdString() << std::endl;
-      }
-      db.exec(QString("CREATE TABLE ways (id INTEGER PRIMARY KEY, node INTEGER, order INTEGER)"));
-      if(!db.commit()) {
-        std::cout << "that didn't either" << std::endl;
-      }
+      query.exec("CREATE TABLE nodes (id INTEGER PRIMARY KEY, lat REAL, lon REAL)");
+//       query.finish();
+//       if(!db.commit()) {
+//         std::cout << "well that didn't work" << std::endl;
+//         std::cout << query.lastError().text().toStdString() << std::endl;
+//       }
+      query.exec("CREATE TABLE ways (id INTEGER PRIMARY KEY, node INTEGER, order INTEGER)");
+//       query.finish();
+//       if(!db.commit()) {
+//         std::cout << "that didn't either" << std::endl;
+//       }
     }
-    query = db.exec(QString("SELECT name FROM sqlite_master"));
-    std::cout << query.size() << std::endl;
+    query.exec("SELECT name FROM sqlite_master");
+//     std::cout << query.next() << std::endl;
   } else {
     std::cout << "failed to open SQLite database" << std::endl;
   }
