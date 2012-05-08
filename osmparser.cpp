@@ -2,6 +2,10 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QSqlDriver>
+#include <QVariant>
+#include <QFile>
+#include <QXmlInputSource>
+#include <QXmlSimpleReader>
 #include <cmath>
 #include <iostream>
 
@@ -55,14 +59,36 @@ OsmDataSource::OsmDataSource() {
   }
 }
 
+void OsmDataSource::fetchData() {
+  OsmParser *parser = new OsmParser(&db);
+  
+  QFile *file = new QFile("bath_osm.xml");
+  QXmlInputSource *source = new QXmlInputSource(file);
+  
+  QXmlSimpleReader *reader = new QXmlSimpleReader;
+  reader->setContentHandler(parser);
+  
+  reader->parse(source);
+  
+  delete reader;
+  delete source;
+  delete file;
+  delete parser;
+}
+
 OsmDataSource::~OsmDataSource() {
   if(db.isOpen())
     db.close();
 }
 
+OsmParser::OsmParser(QSqlDatabase *pdb) : QXmlDefaultHandler() {
+  db = pdb;
+}
+
 bool OsmParser::startDocument() {
   inMarkup = false;
-  nodes.clear();
+//   nodes.clear();
+  db->transaction();
   return true;
 }
 
@@ -70,7 +96,7 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
   if(inMarkup) {
     if(name == "node") {
       double lat = NAN, lon = NAN;
-      unsigned long id = -1;
+      unsigned long long id = -1;
     
       for(int i=0;i<attrs.count();i++) {
         if(attrs.localName(i) == "id")
@@ -81,24 +107,61 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
           lon = attrs.value(i).toDouble();
       }
 //     std::cout << "Node [" << id << "] = (" << lat << ", " << lon << ")" << std::endl;
-      nodes.append(Node(id, lat, lon));
+//       nodes.append(Node(id, lat, lon));
+      QSqlQuery query;
+      query.prepare("SELECT * FROM nodes WHERE id=:id");
+      query.bindValue(":id", id);
+      query.exec();
+      if(query.next()) {
+        query.prepare("UPDATE nodes SET lat=:lat, lon=:lon WHERE id=:id");
+        query.bindValue(":lat", lat);
+        query.bindValue(":lon", lon);
+        query.bindValue(":id", id);
+        query.exec();
+      } else {
+        query.prepare("INSERT INTO nodes (id, lat, lon) VALUES (:id, :lat, :lon)");
+        query.bindValue(":id", id);
+        query.bindValue(":lat", lat);
+        query.bindValue(":lon", lon);
+        query.exec();
+      }
     } else if(name == "way") {
-      unsigned long id = -1;
+//       unsigned long id = -1;
+      wayNodeOrder = 0;
       
       for(int i=0;i<attrs.count();i++) {
         if(attrs.localName(i) == "id")
-          id = attrs.value(i).toLong();
+          currentWay = attrs.value(i).toLong();
       }
       
-      ways.append(Way(id));
+//       ways.append(Way(id));
       inWay = true;
     } else if(name == "nd" && inWay) {
-      unsigned long ref = -1;
+      unsigned long long ref = -1;
       for(int i=0;i<attrs.count();i++) {
         if(attrs.localName(i) == "ref")
           ref = attrs.value(i).toLong();
       }
-      ways.last().nodes.append(ref);
+//       ways.last().nodes.append(ref);
+      QSqlQuery query;
+      query.prepare("SELECT * FROM ways WHERE id=:id AND node=:node");
+      query.bindValue(":id", currentWay);
+      query.bindValue(":node", ref);
+      query.exec();
+      if(query.next()) {
+        query.prepare("UPDATE ways SET order=:order WHERE id=:id AND node=:node");
+        query.bindValue(":order", wayNodeOrder);
+        query.bindValue(":id", currentWay);
+        query.bindValue(":node", ref);
+        query.exec();
+      } else {
+        query.prepare("INSERT INTO ways (id, node, order) VALUES (:id, :node, :order)");
+        query.bindValue(":id", currentWay);
+        query.bindValue(":node", ref);
+        query.bindValue(":order", wayNodeOrder);
+        query.exec();
+      }
+      wayNodeOrder++;
     }
     
   } else if(name == "osm") {
@@ -111,6 +174,7 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
 bool OsmParser::endElement(const QString&, const QString &, const QString &name) {
   if(name == "osm") {
     inMarkup = false;
+    db->commit();
   } else if(name == "way") {
     inWay = false;
   }
@@ -118,9 +182,11 @@ bool OsmParser::endElement(const QString&, const QString &, const QString &name)
 }
 
 int OsmParser::node_count() {
-  return nodes.size();
+//   return nodes.size();
+  return 0;
 }
 
 Node *OsmParser::node(int indx) {
-  return &nodes[indx];
+//   return &nodes[indx];
+  return new Node(0,0,0);
 }

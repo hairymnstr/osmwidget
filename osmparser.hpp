@@ -24,6 +24,7 @@ class OsmDataSource {
   public:
     OsmDataSource();
     ~OsmDataSource();
+    void fetchData();
     
   private:
     QSqlDatabase db;
@@ -31,6 +32,7 @@ class OsmDataSource {
 
 class OsmParser : public QXmlDefaultHandler {
   public:
+    OsmParser(QSqlDatabase *);
     bool startDocument();
     bool endElement(const QString&, const QString&, const QString &name);
     bool startElement(const QString&, const QString&, const QString &name, const QXmlAttributes &attrs);
@@ -40,8 +42,11 @@ class OsmParser : public QXmlDefaultHandler {
   private:
     bool inMarkup;
     bool inWay;
-    QList<Node> nodes;
-    QList<Way> ways;
+    unsigned long long currentWay;
+    unsigned int wayNodeOrder;
+//     QList<Node> nodes;
+//     QList<Way> ways;
+    QSqlDatabase *db;
 };
 
 #endif // ifndef OSM_PARSER_H

@@ -84,12 +84,12 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   painter.setPen(QPen(Qt::blue, 2, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin));
   painter.setBrush(QBrush(Qt::green, Qt::NoBrush));
   painter.setRenderHint(QPainter::Antialiasing, true);
-  for(int i=0;i<osm->node_count();i++) {
-    painter.drawEllipse(int(osm->node(i)->lon * sf), int(osm->node(i)->lat*sf), 2, 2);
-  }
+//   for(int i=0;i<osm->node_count();i++) {
+//     painter.drawEllipse(int(osm->node(i)->lon * sf), int(osm->node(i)->lat*sf), 2, 2);
+//   }
 }
 
-void OsmWidget::setOsmParser(OsmParser *p) {
+void OsmWidget::setOsmSource(OsmDataSource *p) {
   osm = p;
 }
 
@@ -108,19 +108,11 @@ int main(int argc, char **argv) {
   
   QHBoxLayout *layout = new QHBoxLayout;
   
-  OsmParser *parser = new OsmParser();
-  
-  QFile file("bath_osm.xml");
-  QXmlInputSource source(&file);
-  
-  QXmlSimpleReader reader;
-  reader.setContentHandler(parser);
-  
-  reader.parse(source);
+  osm->fetchData();
 
   OsmWidget *surface;
   surface = new OsmWidget;
-  surface->setOsmParser(parser);
+  surface->setOsmSource(osm);
   
   QSlider *slider = new QSlider(Qt::Vertical);
   slider->setMaximum(20);

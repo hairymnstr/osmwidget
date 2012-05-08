@@ -8,14 +8,14 @@ class OsmWidget : public QWidget {
   Q_OBJECT
 
   private:
-    OsmParser *osm;
+    OsmDataSource *osm;
     int zoom;
 
   public:
     OsmWidget(QWidget *parent=0);
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
-    void setOsmParser(OsmParser *);
+    void setOsmSource(OsmDataSource *);
     
   public slots:
     void set_zoom(int);
