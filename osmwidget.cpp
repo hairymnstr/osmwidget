@@ -63,6 +63,9 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   hDegrees = hMetres * -0.2 / yHeight;
   
   std::cout << wDegrees << " x " << hDegrees << std::endl;
+  
+  std::cout << "Area contains " << osm->selectArea(latc+hDegrees/2, lonc-wDegrees/2, latc-hDegrees/2, lonc+wDegrees/2) << " nodes" << std::endl;
+  
   painter.setWindow(QRect((int)round((lonc - wDegrees/2) * sf), (int)round((latc - hDegrees/2) * sf),
                           (int)round(wDegrees * sf), (int)round(hDegrees * sf)));
 //   painter.setWindow(QRect(-24000, 515000, (int)round(wDegrees), (int)round(hDegrees)));
@@ -84,6 +87,17 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   painter.setPen(QPen(Qt::blue, 2, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin));
   painter.setBrush(QBrush(Qt::green, Qt::NoBrush));
   painter.setRenderHint(QPainter::Antialiasing, true);
+  
+  QList<Way> *ways;
+  ways = osm->getWays("highway", "primary");
+  QVector<QPoint> path;
+  for(QList<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path.clear();
+    for(QList<Node>::iterator n=w->nodes.begin();n!=w->nodes.end();++n) {
+      path.append(QPoint((int)round(n->lon * sf), (int)round(n->lat * sf)));
+    }
+    painter.drawPolyline(path.begin(), path.size());
+  }
 //   for(int i=0;i<osm->node_count();i++) {
 //     painter.drawEllipse(int(osm->node(i)->lon * sf), int(osm->node(i)->lat*sf), 2, 2);
 //   }
@@ -108,7 +122,9 @@ int main(int argc, char **argv) {
   
   QHBoxLayout *layout = new QHBoxLayout;
   
-  osm->fetchData();
+//   osm->fetchData();
+  
+  osm->listWayTags();
 
   OsmWidget *surface;
   surface = new OsmWidget;

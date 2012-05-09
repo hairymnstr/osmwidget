@@ -3,21 +3,22 @@
 
 #include <QXmlDefaultHandler>
 #include <QSqlDatabase>
+#include <QHash>
 #include <QList>
 
 class Node {
   public:
-    long id;
+    unsigned long long id;
     double lat;
     double lon;
-    Node(long, double, double);
+    Node(unsigned long long, double, double);
 };
 
 class Way {
   public:
-    long id;
-    QList<unsigned long> nodes;
-    Way(long);
+    unsigned long long id;
+    QList<Node> nodes;
+    Way(unsigned long long);
 };
 
 class OsmDataSource {
@@ -25,6 +26,9 @@ class OsmDataSource {
     OsmDataSource();
     ~OsmDataSource();
     void fetchData();
+    int selectArea(double, double, double, double);
+    int listWayTags();
+    QList<Way> *getWays(QString, QString);
     
   private:
     QSqlDatabase db;
@@ -46,6 +50,9 @@ class OsmParser : public QXmlDefaultHandler {
     unsigned int wayNodeOrder;
 //     QList<Node> nodes;
 //     QList<Way> ways;
+    unsigned long long wayTagCount;
+    unsigned long long wayTagKeyCount;
+    QHash<QString, unsigned long long> wayTagNames;
     QSqlDatabase *db;
 };
 

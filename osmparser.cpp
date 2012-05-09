@@ -6,18 +6,29 @@
 #include <QFile>
 #include <QXmlInputSource>
 #include <QXmlSimpleReader>
+#include <QHash>
+#include <QList>
 #include <cmath>
 #include <iostream>
 
 #include "osmparser.hpp"
 
-Node::Node(long idin, double latin, double lonin) {
+bool warn_query(QSqlQuery *query) {
+  if(!query->exec()) {
+    std::cout << "SQL: \"" << query->executedQuery().toStdString() << "\" Failed" << std::endl;
+    std::cout << "  " << query->lastError().text().toStdString() << std::endl << std::endl;
+    return false;
+  }
+  return true;
+}
+
+Node::Node(unsigned long long idin, double latin, double lonin) {
   id = idin;
   lat = latin;
   lon = lonin;
 }
 
-Way::Way(long idin) {
+Way::Way(unsigned long long idin) {
   id = idin;
   nodes.clear();
 }
@@ -40,20 +51,34 @@ OsmDataSource::OsmDataSource() {
 //       query.finish();
 //       std::cout << query.isActive() << std::endl;
       std::cout << "initialising a new cache in osm.local" << std::endl;
-      query.exec("CREATE TABLE nodes (id INTEGER PRIMARY KEY, lat REAL, lon REAL)");
+      query.prepare("CREATE TABLE nodes (id INTEGER PRIMARY KEY, lat REAL, lon REAL)");
+      warn_query(&query);
 //       query.finish();
 //       if(!db.commit()) {
 //         std::cout << "well that didn't work" << std::endl;
 //         std::cout << query.lastError().text().toStdString() << std::endl;
 //       }
-      query.exec("CREATE TABLE ways (id INTEGER PRIMARY KEY, node INTEGER, order INTEGER)");
+      query.prepare("CREATE TABLE ways (wid INTEGER PRIMARY KEY)");
+      warn_query(&query);
+      
+      query.prepare("CREATE TABLE wayNodes (wid INTEGER, nid INTEGER, weight INTEGER)");
+      warn_query(&query);
 //       query.finish();
 //       if(!db.commit()) {
 //         std::cout << "that didn't either" << std::endl;
 //       }
+      query.prepare("CREATE TABLE wayTags (tid INTEGER PRIMARY KEY, wid INTEGER, kid INTEGER, value TEXT)");
+      warn_query(&query);
+      query.prepare("CREATE TABLE wayKeys (kid INTEGER PRIMARY KEY, name TEXT)");
+      warn_query(&query);
     }
-    query.exec("SELECT name FROM sqlite_master");
+    query.exec("SELECT * FROM nodes");
+    int i = 0;
+    while(query.next())
+      i++;
+    std::cout << "Database contains " << i << " nodes" << std::endl;
 //     std::cout << query.next() << std::endl;
+  
   } else {
     std::cout << "failed to open SQLite database" << std::endl;
   }
@@ -76,6 +101,71 @@ void OsmDataSource::fetchData() {
   delete parser;
 }
 
+int OsmDataSource::selectArea(double minlat, double minlon, double maxlat, double maxlon) {
+  std::cout << minlat << " < lat < " << maxlat << "  " << minlon << " < lon < " << maxlon << std::endl;
+  QSqlQuery query(db);
+  query.prepare("SELECT * FROM nodes WHERE lat>:minlat AND lat<:maxlat AND lon>:minlon AND lon<:maxlon");
+  query.bindValue(":minlat", minlat);
+  query.bindValue(":maxlat", maxlat);
+  query.bindValue(":minlon", minlon);
+  query.bindValue(":maxlon", maxlon);
+  query.exec();
+  int i=0;
+  while(query.next())
+    i++;
+  return i;
+}
+
+int OsmDataSource::listWayTags() {
+  QSqlQuery query(db);
+  
+  query.exec("SELECT kid FROM wayKeys WHERE name='highway'");
+  unsigned long long kid = query.value(0).toULongLong();
+  query.prepare("SELECT value FROM wayTags WHERE kid=:kid");
+  query.bindValue(":kid", kid);
+  warn_query(&query);
+  while(query.next()) {
+    std::cout << query.value(0).toString().toStdString() << std::endl;
+  }
+  return 1;
+}
+
+QList<Way> *OsmDataSource::getWays(QString byTag, QString value) {
+  QSqlQuery query(db);
+  QList<Way> *ways = new QList<Way>;
+  
+  query.prepare("SELECT kid FROM wayKeys WHERE name=:name");
+  query.bindValue(":name", byTag);
+  warn_query(&query);
+  
+  unsigned long long kid = query.value(0).toULongLong();
+  query.prepare("SELECT wid FROM wayTags WHERE kid=:kid AND value=:value");
+  query.bindValue(":kid", kid);
+  query.bindValue(":value", value);
+  warn_query(&query);
+  while(query.next()) {
+    ways->append(Way(query.value(0).toULongLong()));
+  }
+  for(QList<Way>::iterator w=ways->begin();w!=ways->end();++w) {
+    query.prepare("SELECT nid FROM wayNodes WHERE wid=:wid ORDER BY weight ASC");
+    query.bindValue(":wid", w->id);
+    warn_query(&query);
+    while(query.next()) {
+      w->nodes.append(Node(query.value(0).toULongLong(), 0, 0));
+    }
+    for(QList<Node>::iterator n=w->nodes.begin();n!=w->nodes.end();++n) {
+      query.prepare("SELECT lat,lon FROM nodes WHERE id=:id");
+      query.bindValue(":id", n->id);
+      warn_query(&query);
+      query.next();
+      n->lat = query.value(0).toDouble();
+      n->lon = query.value(1).toDouble();
+//     std::cout << w->id << std::endl;
+    }
+  }
+  return ways;
+}
+
 OsmDataSource::~OsmDataSource() {
   if(db.isOpen())
     db.close();
@@ -88,6 +178,8 @@ OsmParser::OsmParser(QSqlDatabase *pdb) : QXmlDefaultHandler() {
 bool OsmParser::startDocument() {
   inMarkup = false;
 //   nodes.clear();
+  wayTagCount = 0;
+  wayTagKeyCount = 0;
   db->transaction();
   return true;
 }
@@ -111,19 +203,20 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
       QSqlQuery query;
       query.prepare("SELECT * FROM nodes WHERE id=:id");
       query.bindValue(":id", id);
-      query.exec();
+      warn_query(&query);
       if(query.next()) {
         query.prepare("UPDATE nodes SET lat=:lat, lon=:lon WHERE id=:id");
         query.bindValue(":lat", lat);
         query.bindValue(":lon", lon);
         query.bindValue(":id", id);
-        query.exec();
+        warn_query(&query);
       } else {
         query.prepare("INSERT INTO nodes (id, lat, lon) VALUES (:id, :lat, :lon)");
         query.bindValue(":id", id);
         query.bindValue(":lat", lat);
         query.bindValue(":lon", lon);
-        query.exec();
+        warn_query(&query);
+//         std::cout << query.executedQuery().toStdString() << std::endl;
       }
     } else if(name == "way") {
 //       unsigned long id = -1;
@@ -133,6 +226,12 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
         if(attrs.localName(i) == "id")
           currentWay = attrs.value(i).toLong();
       }
+      
+      QSqlQuery query(*db);
+      
+      query.prepare("INSERT INTO ways (wid) VALUES (:wid)");
+      query.bindValue(":wid", currentWay);
+      warn_query(&query);
       
 //       ways.append(Way(id));
       inWay = true;
@@ -144,26 +243,42 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
       }
 //       ways.last().nodes.append(ref);
       QSqlQuery query;
-      query.prepare("SELECT * FROM ways WHERE id=:id AND node=:node");
-      query.bindValue(":id", currentWay);
-      query.bindValue(":node", ref);
-      query.exec();
-      if(query.next()) {
-        query.prepare("UPDATE ways SET order=:order WHERE id=:id AND node=:node");
-        query.bindValue(":order", wayNodeOrder);
-        query.bindValue(":id", currentWay);
-        query.bindValue(":node", ref);
-        query.exec();
-      } else {
-        query.prepare("INSERT INTO ways (id, node, order) VALUES (:id, :node, :order)");
-        query.bindValue(":id", currentWay);
-        query.bindValue(":node", ref);
-        query.bindValue(":order", wayNodeOrder);
-        query.exec();
+      
+      query.prepare("INSERT INTO wayNodes (wid, nid, weight) VALUES (:wid, :nid, :weight)");
+      query.bindValue(":wid", currentWay);
+      query.bindValue(":nid", ref);
+      query.bindValue(":weight", wayNodeOrder++);
+      warn_query(&query);
+    } else if(name == "tag") {
+      QString key, val;
+      for(int i=0;i<attrs.count();i++) {
+        if(attrs.localName(i) == "k")
+          key = attrs.value(i);
+        else if(attrs.localName(i) == "v")
+          val = attrs.value(i);
       }
-      wayNodeOrder++;
+      
+      if(inWay) {
+        unsigned long long tagid = 0;
+        QSqlQuery query(*db);
+        if(wayTagNames.find(key) == wayTagNames.end()) {
+          tagid = wayTagKeyCount;
+          wayTagNames.insert(key, wayTagKeyCount++);
+          query.prepare("INSERT INTO wayKeys (kid, name) VALUES (:keyid, :name)");
+          query.bindValue(":keyid", tagid);
+          query.bindValue(":name", key);
+          warn_query(&query);
+        } else {
+          tagid = wayTagNames.find(key).value();
+        }
+        query.prepare("INSERT INTO wayTags (tid, wid, kid, value) VALUES (:tagid, :wayid, :keyid, :value)");
+        query.bindValue(":tagid", wayTagCount++);
+        query.bindValue(":wayid", currentWay);
+        query.bindValue(":keyid", tagid);
+        query.bindValue(":value", val);
+        warn_query(&query);
+      }
     }
-    
   } else if(name == "osm") {
     inMarkup = true;
   }
