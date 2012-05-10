@@ -7,6 +7,7 @@
 #include <QSlider>
 #include <QWidget>
 #include <QPaintEvent>
+#include <QImage>
 
 #include <iostream>
 #include <cmath>
@@ -204,6 +205,7 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   
   delete ways;
   std::cout << "Done." << std::endl;
+  
 //   for(int i=0;i<osm->node_count();i++) {
 //     painter.drawEllipse(int(osm->node(i)->lon * sf), int(osm->node(i)->lat*sf), 2, 2);
 //   }
