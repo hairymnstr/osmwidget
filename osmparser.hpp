@@ -5,20 +5,29 @@
 #include <QSqlDatabase>
 #include <QHash>
 #include <QList>
+#include <QVector>
 
-class Node {
-  public:
-    unsigned long long id;
-    double lat;
-    double lon;
-    Node(unsigned long long, double, double);
-};
+// class Node {
+//   public:
+//     unsigned long long id;
+//     double lat;
+//     double lon;
+//     Node(unsigned long long, double, double);
+//     Node();
+// };
+
+typedef struct {
+  unsigned long long id;
+  double lat;
+  double lon;
+} Node;
 
 class Way {
   public:
     unsigned long long id;
-    QList<Node> nodes;
+    QVector<Node> nodes;
     Way(unsigned long long);
+    Way();
 };
 
 class OsmDataSource {
@@ -28,7 +37,7 @@ class OsmDataSource {
     void fetchData();
     int selectArea(double, double, double, double);
     int listWayTags();
-    QList<Way> *getWays(QString, QString);
+    QVector<Way> *getWays(QString, QString);
     
   private:
     QSqlDatabase db;
@@ -40,8 +49,6 @@ class OsmParser : public QXmlDefaultHandler {
     bool startDocument();
     bool endElement(const QString&, const QString&, const QString &name);
     bool startElement(const QString&, const QString&, const QString &name, const QXmlAttributes &attrs);
-    int node_count();
-    Node *node(int);
     
   private:
     bool inMarkup;

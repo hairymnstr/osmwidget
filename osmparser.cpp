@@ -22,15 +22,26 @@ bool warn_query(QSqlQuery *query) {
   return true;
 }
 
-Node::Node(unsigned long long idin, double latin, double lonin) {
-  id = idin;
-  lat = latin;
-  lon = lonin;
-}
+// Node::Node(unsigned long long idin, double latin, double lonin) {
+//   id = idin;
+//   lat = latin;
+//   lon = lonin;
+// }
+// 
+// Node::Node() {
+//   id = 0;
+//   lat = 0;
+//   lon = 0;
+// }
 
 Way::Way(unsigned long long idin) {
   id = idin;
-  nodes.clear();
+//   nodes.clear();
+}
+
+Way::Way() {
+  id = 0;
+//   nodes.clear();
 }
 
 OsmDataSource::OsmDataSource() {
@@ -73,10 +84,10 @@ OsmDataSource::OsmDataSource() {
       warn_query(&query);
     }
     query.exec("SELECT * FROM nodes");
-    int i = 0;
-    while(query.next())
-      i++;
-    std::cout << "Database contains " << i << " nodes" << std::endl;
+    if(!query.last()) {
+      std::cout << "Can't seek last :(" << std::endl;
+    }
+    std::cout << "Database contains " << query.at() << " nodes" << std::endl;
 //     std::cout << query.next() << std::endl;
   
   } else {
@@ -115,10 +126,8 @@ int OsmDataSource::selectArea(double minlat, double minlon, double maxlat, doubl
   query.bindValue(":minlon", minlon);
   query.bindValue(":maxlon", maxlon);
   query.exec();
-  int i=0;
-  while(query.next())
-    i++;
-  return i;
+  query.last();
+  return query.at() + 1;
 }
 
 int OsmDataSource::listWayTags() {
@@ -135,10 +144,10 @@ int OsmDataSource::listWayTags() {
   return 1;
 }
 
-QList<Way> *OsmDataSource::getWays(QString byTag, QString value) {
+QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
   db.transaction();
   QSqlQuery query(db);
-  QList<Way> *ways = new QList<Way>;
+  QVector<Way> *ways = new QVector<Way>;
   
   std::cout << "Finding tagged ways" << std::endl;
   query.prepare("SELECT kid FROM wayKeys WHERE name=:name");
@@ -150,19 +159,29 @@ QList<Way> *OsmDataSource::getWays(QString byTag, QString value) {
   query.bindValue(":kid", kid);
   query.bindValue(":value", value);
   warn_query(&query);
-  while(query.next()) {
+  query.last();
+  ways->resize(query.at()+1);
+  query.first();
+  int w = 0;
+  do {
 //     std::cout << query.value(0).toULongLong() << std::endl;
-    ways->append(Way(query.value(0).toULongLong()));
-  }
+    (*ways)[w++] = Way(query.value(0).toULongLong());
+  } while(query.next());
   
   std::cout << "Fetching nodes of these ways" << std::endl;
-  for(QList<Way>::iterator w=ways->begin();w!=ways->end();++w) {
+  for(QVector<Way>::iterator w=ways->begin();w!=ways->end();++w) {
     query.prepare("SELECT w.nid, n.lat, n.lon FROM wayNodes w INNER JOIN nodes n ON w.nid=n.id WHERE w.wid=:wid ORDER BY w.weight ASC");
     query.bindValue(":wid", w->id);
     warn_query(&query);
-    while(query.next()) {
-      w->nodes.append(Node(query.value(0).toULongLong(), query.value(1).toDouble(), query.value(2).toDouble()));
-    }
+    query.last();
+    w->nodes.resize(query.at()+1);
+    query.first();
+    int n = 0;
+    do {
+      w->nodes[n].id = query.value(0).toULongLong();
+      w->nodes[n].lat = query.value(1).toDouble();
+      w->nodes[n++].lon = query.value(2).toDouble();
+    } while(query.next());
   }
   std::cout << "done" << std::endl;
   db.commit();
@@ -297,14 +316,4 @@ bool OsmParser::endElement(const QString&, const QString &, const QString &name)
     inWay = false;
   }
   return true;
-}
-
-int OsmParser::node_count() {
-//   return nodes.size();
-  return 0;
-}
-
-Node *OsmParser::node(int indx) {
-//   return &nodes[indx];
-  return new Node(0,0,0);
 }
