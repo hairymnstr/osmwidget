@@ -99,6 +99,11 @@ void OsmDataSource::fetchData() {
   delete source;
   delete file;
   delete parser;
+  QSqlQuery query(db);
+  
+  query.prepare("CREATE INDEX wayIndex ON wayNodes (wid ASC, weight ASC)");
+  warn_query(&query);
+  
 }
 
 int OsmDataSource::selectArea(double minlat, double minlon, double maxlat, double maxlon) {
@@ -131,38 +136,36 @@ int OsmDataSource::listWayTags() {
 }
 
 QList<Way> *OsmDataSource::getWays(QString byTag, QString value) {
+  db.transaction();
   QSqlQuery query(db);
   QList<Way> *ways = new QList<Way>;
   
+  std::cout << "Finding tagged ways" << std::endl;
   query.prepare("SELECT kid FROM wayKeys WHERE name=:name");
   query.bindValue(":name", byTag);
   warn_query(&query);
-  
+  query.next();
   unsigned long long kid = query.value(0).toULongLong();
   query.prepare("SELECT wid FROM wayTags WHERE kid=:kid AND value=:value");
   query.bindValue(":kid", kid);
   query.bindValue(":value", value);
   warn_query(&query);
   while(query.next()) {
+//     std::cout << query.value(0).toULongLong() << std::endl;
     ways->append(Way(query.value(0).toULongLong()));
   }
+  
+  std::cout << "Fetching nodes of these ways" << std::endl;
   for(QList<Way>::iterator w=ways->begin();w!=ways->end();++w) {
-    query.prepare("SELECT nid FROM wayNodes WHERE wid=:wid ORDER BY weight ASC");
+    query.prepare("SELECT w.nid, n.lat, n.lon FROM wayNodes w INNER JOIN nodes n ON w.nid=n.id WHERE w.wid=:wid ORDER BY w.weight ASC");
     query.bindValue(":wid", w->id);
     warn_query(&query);
     while(query.next()) {
-      w->nodes.append(Node(query.value(0).toULongLong(), 0, 0));
-    }
-    for(QList<Node>::iterator n=w->nodes.begin();n!=w->nodes.end();++n) {
-      query.prepare("SELECT lat,lon FROM nodes WHERE id=:id");
-      query.bindValue(":id", n->id);
-      warn_query(&query);
-      query.next();
-      n->lat = query.value(0).toDouble();
-      n->lon = query.value(1).toDouble();
-//     std::cout << w->id << std::endl;
+      w->nodes.append(Node(query.value(0).toULongLong(), query.value(1).toDouble(), query.value(2).toDouble()));
     }
   }
+  std::cout << "done" << std::endl;
+  db.commit();
   return ways;
 }
 

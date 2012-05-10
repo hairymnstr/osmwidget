@@ -88,16 +88,104 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   painter.setBrush(QBrush(Qt::green, Qt::NoBrush));
   painter.setRenderHint(QPainter::Antialiasing, true);
   
+//   std::cout << "Starting SQL queries..." << std::endl;
   QList<Way> *ways;
-  ways = osm->getWays("highway", "primary");
-  QVector<QPoint> path;
+//   std::cout << "Starting Drawing..." << std::endl;
+  QVector<QVector<QVector<QPoint> > > path;
+  int numClasses = 0;
+  path.resize(++numClasses);
+  ways = osm->getWays("highway", "trunk");
   for(QList<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path.clear();
-    for(QList<Node>::iterator n=w->nodes.begin();n!=w->nodes.end();++n) {
-      path.append(QPoint((int)round(n->lon * sf), (int)round(n->lat * sf)));
+//     std::cout << "Append a new list..." << std::endl;
+    path[numClasses-1].append(QVector<QPoint>(w->nodes.size()));
+//     std::cout << "Add the new nodes..." << std::endl;
+    for(int n=0;n<w->nodes.size();n++) {
+      path[numClasses-1].last()[n] = QPoint((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
     }
-    painter.drawPolyline(path.begin(), path.size());
   }
+  path.resize(++numClasses);
+  ways = osm->getWays("highway", "primary");
+  for(QList<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//     std::cout << "Append a new list..." << std::endl;
+    path[numClasses-1].append(QVector<QPoint>(w->nodes.size()));
+//     std::cout << "Add the new nodes..." << std::endl;
+    for(int n=0;n<w->nodes.size();n++) {
+      path[numClasses-1].last()[n] = QPoint((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  path.resize(++numClasses);
+  ways = osm->getWays("highway", "secondary");
+  for(QList<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//     std::cout << "Append a new list..." << std::endl;
+    path[numClasses-1].append(QVector<QPoint>(w->nodes.size()));
+//     std::cout << "Add the new nodes..." << std::endl;
+    for(int n=0;n<w->nodes.size();n++) {
+      path[numClasses-1].last()[n] = QPoint((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  path.resize(++numClasses);
+  ways = osm->getWays("highway", "tertiary");
+  for(QList<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//     std::cout << "Append a new list..." << std::endl;
+    path[numClasses-1].append(QVector<QPoint>(w->nodes.size()));
+//     std::cout << "Add the new nodes..." << std::endl;
+    for(int n=0;n<w->nodes.size();n++) {
+      path[numClasses-1].last()[n] = QPoint((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  path.resize(++numClasses);
+  ways = osm->getWays("highway", "residential");
+  for(QList<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//     std::cout << "Append a new list..." << std::endl;
+    path[numClasses-1].append(QVector<QPoint>(w->nodes.size()));
+//     std::cout << "Add the new nodes..." << std::endl;
+    for(int n=0;n<w->nodes.size();n++) {
+      path[numClasses-1].last()[n] = QPoint((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  path.resize(++numClasses);
+  ways = osm->getWays("highway", "unclassified");
+  for(QList<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//     std::cout << "Append a new list..." << std::endl;
+    path[numClasses-1].append(QVector<QPoint>(w->nodes.size()));
+//     std::cout << "Add the new nodes..." << std::endl;
+    for(int n=0;n<w->nodes.size();n++) {
+      path[numClasses-1].last()[n] = QPoint((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  painter.setPen(QPen(QBrush(QColor(0xc0,0xc0,0xc0)), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(int i=0;i<numClasses;i++) {
+    for(QVector<QVector<QPoint> >::iterator p=path[i].begin();p != path[i].end();++p) {
+      painter.drawPolyline(p->begin(), p->size());
+    }
+  }
+  painter.setPen(QPen(QBrush(QColor(0xff,0xff,0xff)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(QVector<QVector<QPoint> >::iterator p=path[5].begin();p != path[5].end();++p) {
+    painter.drawPolyline(p->begin(), p->size());
+  }
+  painter.setPen(QPen(QBrush(QColor(0xff,0xff,0xff)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(QVector<QVector<QPoint> >::iterator p=path[4].begin();p != path[4].end();++p) {
+    painter.drawPolyline(p->begin(), p->size());
+  }
+  painter.setPen(QPen(QBrush(QColor(0xff,0xff,0x80)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(QVector<QVector<QPoint> >::iterator p=path[3].begin();p != path[3].end();++p) {
+    painter.drawPolyline(p->begin(), p->size());
+  }
+  painter.setPen(QPen(QBrush(QColor(0xff,0x80,0x20)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(QVector<QVector<QPoint> >::iterator p=path[2].begin();p != path[2].end();++p) {
+    painter.drawPolyline(p->begin(), p->size());
+  }
+  painter.setPen(QPen(QBrush(QColor(0x80,0,0)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(QVector<QVector<QPoint> >::iterator p=path[1].begin();p != path[1].end();++p) {
+    painter.drawPolyline(p->begin(), p->size());
+  }
+  painter.setPen(QPen(QBrush(QColor(0x40,0x80,0x40)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  for(QVector<QVector<QPoint> >::iterator p=path[0].begin();p != path[0].end();++p) {
+    painter.drawPolyline(p->begin(), p->size());
+  }
+  
+  delete ways;
+  std::cout << "Done." << std::endl;
 //   for(int i=0;i<osm->node_count();i++) {
 //     painter.drawEllipse(int(osm->node(i)->lon * sf), int(osm->node(i)->lat*sf), 2, 2);
 //   }
