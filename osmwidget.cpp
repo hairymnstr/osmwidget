@@ -31,6 +31,8 @@ QSize OsmWidget::sizeHint() const {
 void OsmWidget::paintEvent(QPaintEvent *) {
   glEnable(GL_MULTISAMPLE);
   QPainter painter(this);
+  
+  painter.setClipping(true);
 
   double wibble;
   double xWidthTop, xWidthBottom;
@@ -47,7 +49,6 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   double yHeight;
   calc_dist(51.3,-2.4, 51.5,-2.4, &yHeight, &wibble);
   
-//   std::cout << xWidth / 1000.0 << "km x " << yHeight / 1000.0 << "km" << std::endl;
   
   double wMetres, hMetres;
   double wDegrees, hDegrees;
@@ -59,21 +60,15 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   wDegrees = wMetres * 0.2 / xWidth;
   hDegrees = hMetres * -0.2 / yHeight;
   
-//   std::cout << wDegrees << " x " << hDegrees << std::endl;
-  
-//   std::cout << "Area contains " << osm->selectArea(latc+hDegrees/2, lonc-wDegrees/2, latc-hDegrees/2, lonc+wDegrees/2) << " nodes" << std::endl;
-  
-  painter.setWindow(QRect((int)round((lonc - wDegrees/2) * sf), (int)round((latc - hDegrees/2) * sf),
-                          (int)round(wDegrees * sf), (int)round(hDegrees * sf)));
+  painter.scale(width() / (wDegrees * sf), height() / (hDegrees * sf));
+  painter.translate(-(lonc-wDegrees/2)*sf, -(latc-hDegrees/2)*sf);
 
-  int w = width();
-  int h = height();
-  int x = 0;
-  int y = 0;
-//   std::cout << width() << ", " << height() << std::endl;
-  painter.setViewport(x, y, w, h);
   painter.setRenderHint(QPainter::Antialiasing);
-  painter.setBrush(QBrush(Qt::green, Qt::NoBrush));
+  painter.setBrush(QBrush(QColor(0xff, 0xff, 0xee)));
+  painter.setPen(QPen(QBrush(QColor(0x20,0x20,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  painter.fillRect(QRect((int)round(-2.4*sf), (int)round(51.5*sf), (int)round(0.2 * sf), (int)round(-0.2*sf)),QBrush(QColor(0xf1,0xee,0xe8)));
+  painter.drawRect(QRect(-20, 10, 300, -300));
+  painter.setBrush(QBrush(QColor(0,0,0), Qt::NoBrush));
   
   QVector<Way> *ways;
   QVector<QPainterPath> path(6);
@@ -152,6 +147,38 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   painter.drawPath(path[1]);
   painter.setPen(QPen(QBrush(QColor(0x40,0x80,0x40)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
   painter.drawPath(path[0]);
+  
+  painter.setTransform(QTransform());   // set identity
+  
+  painter.setPen(QPen(QBrush(QColor(0, 0, 0)), 1, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin));
+  
+  // log code makes sure the scale marker is always 1xxx or 5xxx regardless of absolute magnitude
+  int dist = 50 * zoom;
+  if(log10(dist) - floor(log10(dist)) < 0.875) {
+    if(log10(dist) - floor(log10(dist)) > 0.3979) {
+      dist = (int)round(pow(10, floor(log10(dist)) + 0.69897));
+    } else {
+      dist = (int)pow(10, floor(log10(dist)));
+    }
+  } else {
+    dist = (int)pow(10, ceil(log10(dist)));
+  }
+  
+  double distdraw = round(dist/ (double)zoom);
+  
+  QPainterPath scaleMark;
+  scaleMark.moveTo(20, height()-25);
+  scaleMark.lineTo(20, height()-20);
+  scaleMark.lineTo(20 + distdraw, height()-20);
+  scaleMark.lineTo(20 + distdraw, height()-25);
+  
+  painter.drawPath(scaleMark);
+  
+  if(dist >= 1000) {
+    painter.drawText(QPoint(20, height()-10), QString("%1 km").arg(dist/1000));
+  } else {
+    painter.drawText(QPoint(20, height()-10), QString("%1 m").arg(dist));
+  }
   
   painter.end();
   glDisable(GL_MULTISAMPLE);
