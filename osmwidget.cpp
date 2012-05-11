@@ -49,26 +49,22 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   double yHeight;
   calc_dist(51.3,-2.4, 51.5,-2.4, &yHeight, &wibble);
   
-  double wMetres, hMetres;
   double wDegrees, hDegrees;
   double lonc, latc;
   
-  wMetres = width() * zoom;
-  hMetres = height() * zoom;
-  
-  wDegrees = wMetres * 0.2 / xWidth;
-  hDegrees = hMetres * -0.2 / yHeight;
+  wDegrees = zoom * 0.2 / xWidth;
+  hDegrees = zoom * -0.2 / yHeight;
   
   if(renderFast) {
-    lonc = lonCentre + wDegrees * -tempMoveX / width();
-    latc = latCentre + hDegrees * -tempMoveY / height();
+    lonc = lonCentre + wDegrees * -tempMoveX;
+    latc = latCentre + hDegrees * -tempMoveY;
   } else {
     lonc = lonCentre;//-2.3;
     latc = latCentre;//51.4;
   }
   
-  painter.scale(width() / (wDegrees * sf), height() / (hDegrees * sf));
-  painter.translate(-(lonc-wDegrees/2)*sf, -(latc-hDegrees/2)*sf);
+  painter.scale(1.0 / (wDegrees * sf), 1.0 / (hDegrees * sf));
+  painter.translate(-(lonc-wDegrees*width()/2)*sf, -(latc-hDegrees*height()/2)*sf);
 
   painter.setRenderHint(QPainter::Antialiasing);
   painter.setBrush(QBrush(QColor(0xff, 0xff, 0xee)));
@@ -229,6 +225,8 @@ void OsmWidget::mousePressEvent(QMouseEvent *event) {
   if(event->button() == Qt::LeftButton) {
     dragStartX = event->x();
     dragStartY = event->y();
+    tempMoveX = 0;
+    tempMoveY = 0;
     renderFast = true;
     update();
   }
