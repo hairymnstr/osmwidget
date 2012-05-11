@@ -19,6 +19,8 @@ class OsmWidget : public QGLWidget {
     bool renderFast;
     double lonCentre;
     double latCentre;
+    double wDegrees;
+    double hDegrees;
     
     void translateView(int x, int y);
     
@@ -29,7 +31,7 @@ class OsmWidget : public QGLWidget {
     void setOsmSource(OsmDataSource *);
     
   public slots:
-    void set_zoom(int);
+    void setZoom(int);
 
   protected:
     void paintEvent(QPaintEvent *event);
@@ -39,4 +41,5 @@ class OsmWidget : public QGLWidget {
 };
 
 int calc_dist(double, double, double, double, double *, double *);
+void geodesic_fwd(double, double, double, double, double *, double *);
 #endif // ifndef OSM_WIDGET_H

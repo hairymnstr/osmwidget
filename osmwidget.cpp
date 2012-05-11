@@ -17,7 +17,7 @@
 #include "osmparser.hpp"
 
 OsmWidget::OsmWidget(QWidget *parent) : QGLWidget(QGLFormat(QGL::SampleBuffers), parent) {
-  zoom = 20;
+  setZoom(20);
   lonCentre = -2.3;
   latCentre = 51.4;
 }
@@ -49,7 +49,6 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   double yHeight;
   calc_dist(51.3,-2.4, 51.5,-2.4, &yHeight, &wibble);
   
-  double wDegrees, hDegrees;
   double lonc, latc;
   
   wDegrees = zoom * 0.2 / xWidth;
@@ -252,8 +251,17 @@ void OsmWidget::setOsmSource(OsmDataSource *p) {
   osm = p;
 }
 
-void OsmWidget::set_zoom(int value) {
+void OsmWidget::setZoom(int value) {
+  double wMetres, hMetres;
+  double wibble, latTop, latBottom, lonLeft, lonRight;
   zoom = value;
+  wMetres = width() * zoom;
+  hMetres = height() * zoom;
+  
+  geodesic_fwd(latCentre, lonCentre, 0, hMetres/2, &latTop, &wibble);
+  geodesic_fwd(latCentre, lonCentre, 0, -hMetres/2, &latBottom, &wibble);
+  geodesic_fwd(latCentre, lonCentre, 90, wMetres/2, &wibble, &lonRight);
+  geodesic_fwd(latCentre, lonCentre, 90, -wMetres/2, &wibble, &lonLeft);
   update();
 }
 
@@ -282,7 +290,7 @@ int main(int argc, char **argv) {
   slider->setMaximum(20);
   slider->setMinimum(1);
   slider->setValue(20);
-  win->connect(slider, SIGNAL(sliderMoved(int)), surface, SLOT(set_zoom(int)));
+  win->connect(slider, SIGNAL(sliderMoved(int)), surface, SLOT(setZoom(int)));
   
   layout->addWidget(surface);
   layout->addWidget(slider);
@@ -363,4 +371,83 @@ int calc_dist(double lat1, double lon1, double lat2, double lon2, double *range,
   
   *bearing = atan2(cosU1 * sinLambda, sinU1 * cosU2*-1 + cosU1 * sinU2 * cosLambda) * 180.0 / M_PI;
   return 0;
+}
+
+/**
+ *  geodesic_fwd - function to find the lat/lon of a point given a start, heading and range.
+ *
+ * PARAMETERS
+ * slat - origin latitude
+ * slon - origin longitude
+ * heading - bearing from the origin to the end point
+ * range - distance in metres from the origin to the end point
+ * 
+ * RETURNS
+ * elat - latitude of end point
+ * elon - longitude of end point
+ *
+ * NOTES
+ * Only works for co-ordinates on a WGS84 reference elipsoid, for other geoids parameters
+ * f, a and b in the code would need to be altered.
+ **/
+void geodesic_fwd(double slat, double slon, double heading, double range, double *elat, double *elon) {
+  double f, a, b;
+  double r, baz, cu, su, sa, cf, sf, tu, y;
+  double tol;
+  double c2a, cy, sy, e, c, d, cz, x;
+  
+  slat = slat * M_PI / 180.0;
+  slon = slon * M_PI / 180.0;
+
+  heading = heading * M_PI / 180.0;
+
+  // tolerance and relevant geoid parameters for WGS84
+  tol = 0.5e-13;
+  f = 1 / 298.257223563;
+  a = 6378137.0;
+  b = 6356752.3142;
+
+  r = 1.0 - f;
+  tu = r * sin(slat) / cos(slat);
+  sf = sin(heading);
+  cf = cos(heading);
+
+  baz = 2.0 * atan2(tu, cf);
+  cu = 1.0/sqrt(pow(tu, 2.0) + 1);
+  su = tu * cu;
+  sa = cu * sf;
+  c2a = -1.0 * pow(sa, 2.0) + 1;
+  x = sqrt((1.0 / r / r - 1) * c2a + 1) + 1;
+  x = (x - 2) / x;
+  c = 1 - x;
+  c = (1 + pow(x, 2.0) / 4.0) / c;
+  d = (0.375 * pow(x, 2.0) - 1) * x;
+  tu = range / r / a / c;
+  y = tu;
+
+  do {
+    sy = sin(y);
+    cy = cos(y);
+    cz = cos(baz + y);
+    e = 2.0 * pow(cz, 2.0) - 1;
+    c = y;
+    x = e * cy;
+    y = 2.0 * e - 1;
+    y = (((4.0 * pow(sy, 2.0) - 3) * y * cz * d/6.0 + x) * d/4.0 - cz) * sy * d + tu;
+  } while(fabs(y - c) > tol);
+
+  baz = cu * cy * cf - su * sy;
+  c = r * sqrt(pow(sa, 2.0) + pow(baz, 2));
+  d = su * cy + cu * sy * cf;
+  *elat = atan2(d, c);
+  c = cu * cy - su * sy * cf;
+  x = atan2(sy * sf, c);
+  c = ((-3.0 * c2a + 4.0) * f + 4.0) *c2a * f/16.0;
+  d = ((e * cy * c + cz) * sy * c + y) * sa;
+  *elon = slon + x - (1 - c) * d * f;
+  baz = atan2(sa, baz) + M_PI;
+
+  *elat = (*elat) / M_PI * 180.0;
+  *elon = (*elon) / M_PI * 180.0;
+  return;
 }
