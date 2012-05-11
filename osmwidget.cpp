@@ -17,9 +17,9 @@
 #include "osmparser.hpp"
 
 OsmWidget::OsmWidget(QWidget *parent) : QGLWidget(QGLFormat(QGL::SampleBuffers), parent) {
-  setZoom(20);
   lonCentre = -2.3;
   latCentre = 51.4;
+  setZoom(20);
 }
 
 QSize OsmWidget::minimumSizeHint() const {
@@ -34,25 +34,25 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   glEnable(GL_MULTISAMPLE);
   QPainter painter(this);
 
-  double wibble;
-  double xWidthTop, xWidthBottom;
+//   double wibble;
+//   double xWidthTop, xWidthBottom;
   int sf = 10000;
   
-  calc_dist(51.5,-2.4, 51.5,-2.2, &xWidthTop, &wibble);
-  calc_dist(51.3,-2.4, 51.3,-2.2, &xWidthBottom, &wibble);
-  
-  if((fabs(xWidthTop - xWidthBottom) / qMax(xWidthTop, xWidthBottom)) > 0.01) {
-    std::cout << "Warning map aberration too large!!!" << std::endl;
-  }
+//   calc_dist(51.5,-2.4, 51.5,-2.2, &xWidthTop, &wibble);
+//   calc_dist(51.3,-2.4, 51.3,-2.2, &xWidthBottom, &wibble);
+//   
+//   if((fabs(xWidthTop - xWidthBottom) / qMax(xWidthTop, xWidthBottom)) > 0.01) {
+//     std::cout << "Warning map aberration too large!!!" << std::endl;
+//   }
 
-  double xWidth = (xWidthTop + xWidthBottom) / 2.0;
-  double yHeight;
-  calc_dist(51.3,-2.4, 51.5,-2.4, &yHeight, &wibble);
+//   double xWidth = (xWidthTop + xWidthBottom) / 2.0;
+//   double yHeight;
+//   calc_dist(51.3,-2.4, 51.5,-2.4, &yHeight, &wibble);
   
   double lonc, latc;
-  
-  wDegrees = zoom * 0.2 / xWidth;
-  hDegrees = zoom * -0.2 / yHeight;
+//   std::cout << "old: " << zoom * 0.2 / xWidth << " x " << zoom * 0.2 / yHeight << std::endl;
+//   wDegrees = zoom * 0.2 / xWidth;
+//   hDegrees = zoom * -0.2 / yHeight;
   
   if(renderFast) {
     lonc = lonCentre + wDegrees * -tempMoveX;
@@ -252,21 +252,21 @@ void OsmWidget::setOsmSource(OsmDataSource *p) {
 }
 
 void OsmWidget::setZoom(int value) {
-  double wMetres, hMetres;
-  double wibble, latTop, latBottom, lonLeft, lonRight;
+  double wibble, latTop, lonRight;
   zoom = value;
-  wMetres = width() * zoom;
-  hMetres = height() * zoom;
   
-  geodesic_fwd(latCentre, lonCentre, 0, hMetres/2, &latTop, &wibble);
-  geodesic_fwd(latCentre, lonCentre, 0, -hMetres/2, &latBottom, &wibble);
-  geodesic_fwd(latCentre, lonCentre, 90, wMetres/2, &wibble, &lonRight);
-  geodesic_fwd(latCentre, lonCentre, 90, -wMetres/2, &wibble, &lonLeft);
+  geodesic_fwd(latCentre, lonCentre, 0, 1000, &latTop, &wibble);
+  geodesic_fwd(latCentre, lonCentre, 90, 1000, &wibble, &lonRight);
+  
+  wDegrees = (lonRight - lonCentre) * zoom / 1000.0;
+  hDegrees = -(latTop - latCentre) * zoom / 1000.0;          // flip sign so origin is bottom left
+  
   update();
 }
 
 void OsmWidget::translateView(int x, int y) {
-  
+  lonCentre += -x * wDegrees;
+  latCentre += -y * hDegrees;
 }
 
 int main(int argc, char **argv) {
