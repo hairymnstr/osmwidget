@@ -145,11 +145,11 @@ int OsmDataSource::listWayTags() {
 }
 
 QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
-  db.transaction();
+//   db.transaction();
   QSqlQuery query(db);
   QVector<Way> *ways = new QVector<Way>;
   
-  std::cout << "Finding tagged ways" << std::endl;
+//   std::cout << "Finding tagged ways" << std::endl;
   query.prepare("SELECT kid FROM wayKeys WHERE name=:name");
   query.bindValue(":name", byTag);
   warn_query(&query);
@@ -168,7 +168,7 @@ QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
     (*ways)[w++] = Way(query.value(0).toULongLong());
   } while(query.next());
   
-  std::cout << "Fetching nodes of these ways" << std::endl;
+//   std::cout << "Fetching nodes of these ways" << std::endl;
   for(QVector<Way>::iterator w=ways->begin();w!=ways->end();++w) {
     query.prepare("SELECT w.nid, n.lat, n.lon FROM wayNodes w INNER JOIN nodes n ON w.nid=n.id WHERE w.wid=:wid ORDER BY w.weight ASC");
     query.bindValue(":wid", w->id);
@@ -183,8 +183,8 @@ QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
       w->nodes[n++].lon = query.value(2).toDouble();
     } while(query.next());
   }
-  std::cout << "done" << std::endl;
-  db.commit();
+//   std::cout << "done" << std::endl;
+//   db.commit();
   return ways;
 }
 

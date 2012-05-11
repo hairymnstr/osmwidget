@@ -2,9 +2,10 @@
 #define OSM_WIDGET_H
 
 #include <QWidget>
+#include <QGLWidget>
 #include "osmparser.hpp"
 
-class OsmWidget : public QWidget {
+class OsmWidget : public QGLWidget {
   Q_OBJECT
 
   private:
