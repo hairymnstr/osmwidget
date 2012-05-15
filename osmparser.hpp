@@ -1,12 +1,17 @@
 #ifndef OSM_PARSER_H
 #define OSM_PARSER_H
 
+#include <QObject>
 #include <QXmlDefaultHandler>
 #include <QSqlDatabase>
 #include <QHash>
 #include <QList>
 #include <QVector>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 
+#define STATUS_PENDING 1
+#define STATUS_FETCHED 2
 // class Node {
 //   public:
 //     unsigned long long id;
@@ -30,18 +35,41 @@ class Way {
     Way();
 };
 
-class OsmDataSource {
+class OsmDataSource : public QObject {
+  Q_OBJECT
+  
   public:
     OsmDataSource();
     ~OsmDataSource();
-    void fetchData();
-    int selectArea(double, double, double, double);
-    int listWayTags();
+    void fetchData(double, double, double, double);
     QVector<Way> *getWays(QString, QString);
+    bool cacheTile(int,int);
+    
+  public slots:
+    void parseData(QNetworkReply *);
     
   private:
     QSqlDatabase db;
+    QNetworkAccessManager *net;
+    double latStep;
+    double lonStep;
 };
+
+// class XapiFetcher : public QObject {
+//   Q_OBJECT
+//   
+//   public:
+//     XapiFetcher();
+//     void fetch();
+//     void busy();
+//     
+//   public slots:
+//     void replyFinished(QNetworkReply *);
+//     
+//   private:
+//     QNetworkAccessManager *net;
+//     bool fetching;
+// };
 
 class OsmParser : public QXmlDefaultHandler {
   public:

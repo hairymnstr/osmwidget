@@ -26,6 +26,7 @@ class OsmWidget : public QGLWidget {
     
   public:
     OsmWidget(QWidget *parent=0);
+    ~OsmWidget();
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
     void setOsmSource(OsmDataSource *);

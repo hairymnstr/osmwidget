@@ -19,7 +19,12 @@
 OsmWidget::OsmWidget(QWidget *parent) : QGLWidget(QGLFormat(QGL::SampleBuffers), parent) {
   lonCentre = -2.3;
   latCentre = 51.4;
+  
+  osm = new OsmDataSource();
+  std::cout <<"Setting zoom state..." << std::endl;
+  std::cout << "Widget size " << width() << " x " << height() << std::endl;
   setZoom(20);
+  std::cout << "Zoom done" << std::endl;
 }
 
 QSize OsmWidget::minimumSizeHint() const {
@@ -269,19 +274,40 @@ void OsmWidget::mouseReleaseEvent(QMouseEvent *event) {
   }
 }
 
-void OsmWidget::setOsmSource(OsmDataSource *p) {
-  osm = p;
-}
+// void OsmWidget::setOsmSource(OsmDataSource *p) {
+//   osm = p;
+// }
 
 void OsmWidget::setZoom(int value) {
   double wibble, latTop, lonRight;
   zoom = value;
-  
+  std::cout << "Calculating scaling factors" << std::endl;
   geodesic_fwd(latCentre, lonCentre, 0, 1000, &latTop, &wibble);
   geodesic_fwd(latCentre, lonCentre, 90, 1000, &wibble, &lonRight);
   
   wDegrees = (lonRight - lonCentre) * zoom / 1000.0;
   hDegrees = -(latTop - latCentre) * zoom / 1000.0;          // flip sign so origin is bottom left
+  
+  double lon = wDegrees * width();
+  double lat = hDegrees * height();
+  double lonMin = lonCentre - lon/2.0;
+  double lonMax = lonCentre + lon/2.0;
+  double latMin = latCentre - lat/2.0;
+  double latMax = latCentre + lat/2.0;
+  
+  int lonMinCache = (int)floor(lonMin * 5);
+  int lonMaxCache = (int)ceil(lonMax * 5);
+  int latMinCache = (int)floor(latMin * 5);
+  int latMaxCache = (int)ceil(latMax * 5);
+  
+  for(int i = lonMinCache;i<=lonMaxCache;i++) {
+    for(int j = latMinCache;j<=latMaxCache;j++) {
+      std::cout << "Caching the tile (" << j << ", " << i << ")" << std::endl;
+//       std::cout << "osm = " << osm << std::endl;
+      osm->cacheTile(i,j);
+      std::cout << "Done." << std::endl;
+    }
+  }
   
   update();
 }
@@ -289,16 +315,42 @@ void OsmWidget::setZoom(int value) {
 void OsmWidget::translateView(int x, int y) {
   lonCentre += -x * wDegrees;
   latCentre += -y * hDegrees;
+  
+  // check and see what tiles will be displayed now
+  double lon = wDegrees * width();
+  double lat = hDegrees * width();
+  double lonMin = lonCentre - lon/2.0;
+  double lonMax = lonCentre + lon/2.0;
+  double latMin = latCentre - lat/2.0;
+  double latMax = latCentre + lat/2.0;
+  
+  int lonMinCache = (int)floor(lonMin * 5);
+  int lonMaxCache = (int)ceil(lonMax * 5);
+  int latMinCache = (int)floor(latMin * 5);
+  int latMaxCache = (int)ceil(latMax * 5);
+  
+  for(int i = lonMinCache;i<=lonMaxCache;i++) {
+    for(int j = latMinCache;j<=latMaxCache;j++) {
+      osm->cacheTile(i,j);
+    }
+  }
+}
+
+OsmWidget::~OsmWidget() {
+  delete osm;
 }
 
 int main(int argc, char **argv) {
   QApplication app(argc, argv);
   
-  OsmDataSource *osm = new OsmDataSource();
+  
+  std::cout << "Making window" << std::endl;
   
   QWidget *win = new QWidget;
   
   QHBoxLayout *layout = new QHBoxLayout;
+  
+  std::cout << "Making the OSM widget" << std::endl;
   
 //   osm->fetchData();
   
@@ -306,7 +358,12 @@ int main(int argc, char **argv) {
 
   OsmWidget *surface;
   surface = new OsmWidget;
-  surface->setOsmSource(osm);
+  
+//   std::cout << "Adding a data source to the new widget" << std::endl;
+  
+//   surface->setOsmSource(osm);
+  
+  std::cout << "Adding zoom bar" << std::endl;
   
   QSlider *slider = new QSlider(Qt::Vertical);
   slider->setMaximum(20);
@@ -314,16 +371,22 @@ int main(int argc, char **argv) {
   slider->setValue(20);
   win->connect(slider, SIGNAL(sliderMoved(int)), surface, SLOT(setZoom(int)));
   
+  std::cout << "Constructing UI" << std::endl;
+  
   layout->addWidget(surface);
   layout->addWidget(slider);
+  
+  std::cout << "Showing window" << std::endl;
   
   win->setLayout(layout);
   win->show();
 //   surface->show();
 
+  std::cout << "Running app" << std::endl;
+
   int ret = app.exec();
   
-  delete osm;
+//   delete osm;
   
   return ret;
 }

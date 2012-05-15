@@ -8,6 +8,8 @@
 #include <QXmlSimpleReader>
 #include <QHash>
 #include <QList>
+#include <QNetworkRequest>
+#include <QUrl>
 #include <cmath>
 #include <iostream>
 
@@ -45,6 +47,8 @@ Way::Way() {
 }
 
 OsmDataSource::OsmDataSource() {
+  latStep = 0.2;
+  lonStep = 0.2;
   db = QSqlDatabase::addDatabase("QSQLITE");
   db.setDatabaseName("osm.local");
   bool ok = db.open();
@@ -82,25 +86,68 @@ OsmDataSource::OsmDataSource() {
       warn_query(&query);
       query.prepare("CREATE TABLE wayKeys (kid INTEGER PRIMARY KEY, name TEXT)");
       warn_query(&query);
+      query.prepare("CREATE TABLE cache_contents (latid INTEGER, lonid INTEGER, status INTEGER, PRIMARY KEY(latid, lonid))");
+      warn_query(&query);
     }
     query.exec("SELECT * FROM nodes");
     if(!query.last()) {
-      std::cout << "Can't seek last :(" << std::endl;
+      std::cout << "Database contains 0 nodes" << std::endl;
+    } else {
+      std::cout << "Database contains " << query.at() << " nodes" << std::endl;
     }
-    std::cout << "Database contains " << query.at() << " nodes" << std::endl;
 //     std::cout << query.next() << std::endl;
   
   } else {
     std::cout << "failed to open SQLite database" << std::endl;
   }
+  
+  net = new QNetworkAccessManager(this);
+  
+//   std::cout << "Things: " << net << std::endl;
+  
+  connect(net, SIGNAL(finished(QNetworkReply *)), this, SLOT(parseData(QNetworkReply *)));
+//   std::cout << this << std::endl;
 }
 
-void OsmDataSource::fetchData() {
+void OsmDataSource::fetchData(double minlat, double minlon, double maxlat, double maxlon) {
+  std::cout << "fetchData" << std::endl;
+//   std::cout << this << std::endl;
+//   QNetworkAccessManager *  net = new QNetworkAccessManager();
+//   connect(net, SIGNAL(finished(QNetworkReply *)), this, SLOT(parseData(QNetworkReply *)));
+
+  QString url = QString("http://www.overpass-api.de/api/xapi?map?bbox=%1,%2,%3,%4")
+                        .arg(minlon).arg(minlat).arg(maxlon).arg(maxlat);  //-2.4,51.3,-2.2,51.5
+//   std::cout << "network request" << std::endl;
+//   QNetworkRequest request = ;
+  net->get(QNetworkRequest(QUrl(url))); //"http://www.overpass-api.de/api/xapi?map?bbox=-2.4,51.3,-2.2,51.5")));
+}
+
+void OsmDataSource::parseData(QNetworkReply *reply) {
+  QSqlQuery query(db);
+  
+  // need to figure out what area this data corresponds to
+  if(reply->url().hasQueryItem("bbox")) {
+    QStringList bbox = reply->url().queryItemValue("bbox").split(",");
+    double minlon = bbox[0].toDouble();
+    double minlat = bbox[1].toDouble();
+//     double maxlon = bbox[2].toDouble();
+//     double maxlat = bbox[3].toDouble();
+    
+    query.prepare("UPDATE cache_contents SET status=:status WHERE latid=:latid AND lonid=:lonid");
+    query.bindValue(":status", STATUS_FETCHED);
+    query.bindValue(":latid", (int)((minlon + lonStep/2) * 5));
+    query.bindValue(":lonid", (int)((minlat + latStep/2) * 5));
+    warn_query(&query);
+    
+//     std::cout << reply->url().queryItemValue("bbox").toStdString() << std::endl;
+  }
+  
+  // in theory it's quicker to drop the index and then re-populate??
+  query.prepare("DROP INDEX IF EXISTS wayIndex");
+  warn_query(&query);
+  
   OsmParser *parser = new OsmParser(&db);
-  
-  QFile *file = new QFile("bath_osm.xml");
-  QXmlInputSource *source = new QXmlInputSource(file);
-  
+  QXmlInputSource *source = new QXmlInputSource(reply);
   QXmlSimpleReader *reader = new QXmlSimpleReader;
   reader->setContentHandler(parser);
   
@@ -108,40 +155,12 @@ void OsmDataSource::fetchData() {
   
   delete reader;
   delete source;
-  delete file;
+//   delete file;
   delete parser;
-  QSqlQuery query(db);
   
   query.prepare("CREATE INDEX wayIndex ON wayNodes (wid ASC, weight ASC)");
   warn_query(&query);
   
-}
-
-int OsmDataSource::selectArea(double minlat, double minlon, double maxlat, double maxlon) {
-  std::cout << minlat << " < lat < " << maxlat << "  " << minlon << " < lon < " << maxlon << std::endl;
-  QSqlQuery query(db);
-  query.prepare("SELECT * FROM nodes WHERE lat>:minlat AND lat<:maxlat AND lon>:minlon AND lon<:maxlon");
-  query.bindValue(":minlat", minlat);
-  query.bindValue(":maxlat", maxlat);
-  query.bindValue(":minlon", minlon);
-  query.bindValue(":maxlon", maxlon);
-  query.exec();
-  query.last();
-  return query.at() + 1;
-}
-
-int OsmDataSource::listWayTags() {
-  QSqlQuery query(db);
-  
-  query.exec("SELECT kid FROM wayKeys WHERE name='highway'");
-  unsigned long long kid = query.value(0).toULongLong();
-  query.prepare("SELECT value FROM wayTags WHERE kid=:kid");
-  query.bindValue(":kid", kid);
-  warn_query(&query);
-  while(query.next()) {
-    std::cout << query.value(0).toString().toStdString() << std::endl;
-  }
-  return 1;
 }
 
 QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
@@ -159,33 +178,63 @@ QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
   query.bindValue(":kid", kid);
   query.bindValue(":value", value);
   warn_query(&query);
-  query.last();
-  ways->resize(query.at()+1);
-  query.first();
-  int w = 0;
-  do {
-//     std::cout << query.value(0).toULongLong() << std::endl;
-    (*ways)[w++] = Way(query.value(0).toULongLong());
-  } while(query.next());
+  if(query.last()) {
+    ways->resize(query.at()+1);
+    query.first();
+    int w = 0;
+    do {
+//         std::cout << query.value(0).toULongLong() << std::endl;
+      (*ways)[w++] = Way(query.value(0).toULongLong());
+    } while(query.next());
+  } else {
+    std::cout << "no ways found :(" << std::endl;
+    ways->clear();
+  }
   
 //   std::cout << "Fetching nodes of these ways" << std::endl;
   for(QVector<Way>::iterator w=ways->begin();w!=ways->end();++w) {
     query.prepare("SELECT w.nid, n.lat, n.lon FROM wayNodes w INNER JOIN nodes n ON w.nid=n.id WHERE w.wid=:wid ORDER BY w.weight ASC");
     query.bindValue(":wid", w->id);
     warn_query(&query);
-    query.last();
-    w->nodes.resize(query.at()+1);
-    query.first();
-    int n = 0;
-    do {
-      w->nodes[n].id = query.value(0).toULongLong();
-      w->nodes[n].lat = query.value(1).toDouble();
-      w->nodes[n++].lon = query.value(2).toDouble();
-    } while(query.next());
+    if(query.last()) {
+      w->nodes.resize(query.at()+1);
+      query.first();
+      int n = 0;
+      do {
+        w->nodes[n].id = query.value(0).toULongLong();
+        w->nodes[n].lat = query.value(1).toDouble();
+        w->nodes[n++].lon = query.value(2).toDouble();
+      } while(query.next());
+    } else {
+      w->nodes.clear();
+    }
   }
 //   std::cout << "done" << std::endl;
 //   db.commit();
   return ways;
+}
+
+bool OsmDataSource::cacheTile(int lon, int lat) {
+  std::cout << "cacheTile" << std::endl;
+  QSqlQuery query(db);
+  
+  std::cout << "Caching tile (" << lat << ", " << lon << ")" << std::endl;
+  
+  query.prepare("SELECT latid FROM cache_contents WHERE latid=:latid AND lonid=:lonid");
+  query.bindValue(":latid", lat);
+  query.bindValue(":lonid", lon);
+  warn_query(&query);
+  
+  if(!query.next()) {
+    // the tile isn't cached.  Fetch it
+    query.prepare("INSERT INTO cache_contents (latid, lonid, status) VALUES (:latid, :lonid, :status)");
+    query.bindValue(":latid", lat);
+    query.bindValue(":lonid", lon);
+    query.bindValue(":status", STATUS_PENDING);
+    warn_query(&query);
+    fetchData(lat/5.0-0.2, lon/5.0-0.2, lat/5.0+0.2, lon/5.0+0.2);
+  }
+  return true;
 }
 
 OsmDataSource::~OsmDataSource() {
@@ -193,6 +242,33 @@ OsmDataSource::~OsmDataSource() {
     db.close();
 }
 
+/**
+ * XapiFetcher - a wrapper for accessing OSM extended API
+ */
+// XapiFetcher::XapiFetcher() {
+//   net = new QNetworkAccessManager(this);
+//   busy = false;
+//   connect(net, SIGNAL(finished(QNetworkReply *)), this, SLOT(replyFinished(QNetworkReply *)));
+// }
+// 
+// XapiFetcher::fetch(double minlat, double minlon, double maxlat, double maxlon) {
+//   QString url = QString("http://www.overpass-api.de/api/xapi?map?bbox=%1,%2,%3,%4")
+//                         .arg(minlon).arg(minlat).arg(maxlon).arg(maxlat);  //-2.4,51.3,-2.2,51.5
+//   busy = true;
+//   net->get(QNetworkRequest(QUrl(url)));
+// }
+// 
+// XapiFetcher::replyFinished(QNetworkReply *xapiReply) {
+//   QByteArray data = xapiReply->readAll();
+//   QString str(data);
+//   
+//   busy = false;
+// }
+
+
+/**
+ * OsmParser - an XML parser for OSM data
+ **/
 OsmParser::OsmParser(QSqlDatabase *pdb) : QXmlDefaultHandler() {
   db = pdb;
 }
