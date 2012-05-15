@@ -41,6 +41,7 @@ class OsmDataSource : public QObject {
   public:
     OsmDataSource();
     ~OsmDataSource();
+    void selectArea(double, double, double, double);
     void fetchData(double, double, double, double);
     QVector<Way> *getWays(QString, QString);
     bool cacheTile(int,int);
@@ -53,6 +54,11 @@ class OsmDataSource : public QObject {
     QNetworkAccessManager *net;
     double latStep;
     double lonStep;
+    
+    int minlon;
+    int maxlon;
+    int minlat;
+    int maxlat;
 };
 
 // class XapiFetcher : public QObject {
@@ -75,6 +81,7 @@ class OsmParser : public QXmlDefaultHandler {
   public:
     OsmParser(QSqlDatabase *);
     bool startDocument();
+    bool endDocument();
     bool endElement(const QString&, const QString&, const QString &name);
     bool startElement(const QString&, const QString&, const QString &name, const QXmlAttributes &attrs);
     
@@ -88,6 +95,7 @@ class OsmParser : public QXmlDefaultHandler {
     unsigned long long wayTagCount;
     unsigned long long wayTagKeyCount;
     QHash<QString, unsigned long long> wayTagNames;
+    QVector<unsigned long long> newWays;
     QSqlDatabase *db;
 };
 

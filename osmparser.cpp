@@ -66,14 +66,14 @@ OsmDataSource::OsmDataSource() {
 //       query.finish();
 //       std::cout << query.isActive() << std::endl;
       std::cout << "initialising a new cache in osm.local" << std::endl;
-      query.prepare("CREATE TABLE nodes (id INTEGER PRIMARY KEY, lat REAL, lon REAL)");
+      query.prepare("CREATE TABLE nodes (id INTEGER PRIMARY KEY, lat INTEGER, lon INTEGER)");
       warn_query(&query);
 //       query.finish();
 //       if(!db.commit()) {
 //         std::cout << "well that didn't work" << std::endl;
 //         std::cout << query.lastError().text().toStdString() << std::endl;
 //       }
-      query.prepare("CREATE TABLE ways (wid INTEGER PRIMARY KEY)");
+      query.prepare("CREATE TABLE ways (wid INTEGER PRIMARY KEY, minlat INTEGER, minlon INTEGER, maxlat INTEGER, maxlon INTEGER)");
       warn_query(&query);
       
       query.prepare("CREATE TABLE wayNodes (wid INTEGER, nid INTEGER, weight INTEGER)");
@@ -119,6 +119,7 @@ void OsmDataSource::fetchData(double minlat, double minlon, double maxlat, doubl
                         .arg(minlon).arg(minlat).arg(maxlon).arg(maxlat);  //-2.4,51.3,-2.2,51.5
 //   std::cout << "network request" << std::endl;
 //   QNetworkRequest request = ;
+  std::cout << "Requesting " << url.toStdString() << std::endl;
   net->get(QNetworkRequest(QUrl(url))); //"http://www.overpass-api.de/api/xapi?map?bbox=-2.4,51.3,-2.2,51.5")));
 }
 
@@ -142,6 +143,8 @@ void OsmDataSource::parseData(QNetworkReply *reply) {
 //     std::cout << reply->url().queryItemValue("bbox").toStdString() << std::endl;
   }
   
+  std::cout << "Received XML for " << reply->url().toString().toStdString() << std::endl;
+  
   // in theory it's quicker to drop the index and then re-populate??
   query.prepare("DROP INDEX IF EXISTS wayIndex");
   warn_query(&query);
@@ -158,59 +161,89 @@ void OsmDataSource::parseData(QNetworkReply *reply) {
 //   delete file;
   delete parser;
   
-  query.prepare("CREATE INDEX wayIndex ON wayNodes (wid ASC, weight ASC)");
+  
+  std::cout << "Parsed XML for " << reply->url().toString().toStdString() << std::endl;
+  
+}
+
+void OsmDataSource::selectArea(double minlati, double minloni, double maxlati, double maxloni) {
+  maxlat = round(maxlati * 1e6);
+  maxlon = round(maxloni * 1e6);
+  minlat = round(minlati * 1e6);
+  minlon = round(minloni * 1e6);
+  
+//   std::cout << minlat << ", " << minlon << ", " << maxlat << ", " << maxlon << std::endl;
+  
+  QSqlQuery query(db);
+  
+  query.prepare("SELECT wid FROM ways WHERE minlon<:maxlon AND maxlon>:minlon AND minlat<:maxlat AND maxlat>:minlat");
+  query.bindValue(":minlon", minlon);
+  query.bindValue(":maxlon", maxlon);
+  query.bindValue(":minlat", minlat);
+  query.bindValue(":maxlat", maxlat);
   warn_query(&query);
+  
+  if(query.last()) {
+    std::cout << "Total of " << query.at()+1 << " ways cross the selected area" << std::endl;
+  } else {
+    std::cout << "Total of " << 0 << " ways cross the selected area" << std::endl;
+  }
   
 }
 
 QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
-//   db.transaction();
   QSqlQuery query(db);
+  QVector<unsigned long long> wayids;
   QVector<Way> *ways = new QVector<Way>;
+  int w;
   
-//   std::cout << "Finding tagged ways" << std::endl;
   query.prepare("SELECT kid FROM wayKeys WHERE name=:name");
   query.bindValue(":name", byTag);
   warn_query(&query);
-  query.next();
+  if(!query.next()) {
+    std::cout << "no ways with " << byTag.toStdString() << "=" << value.toStdString() << " found" << std::endl;
+    return ways;
+  }
   unsigned long long kid = query.value(0).toULongLong();
   query.prepare("SELECT wid FROM wayTags WHERE kid=:kid AND value=:value");
   query.bindValue(":kid", kid);
   query.bindValue(":value", value);
   warn_query(&query);
   if(query.last()) {
-    ways->resize(query.at()+1);
+    wayids.resize(query.at()+1);
     query.first();
-    int w = 0;
+    w = 0;
     do {
-//         std::cout << query.value(0).toULongLong() << std::endl;
-      (*ways)[w++] = Way(query.value(0).toULongLong());
+      wayids[w++] = query.value(0).toULongLong();
     } while(query.next());
   } else {
     std::cout << "no ways found :(" << std::endl;
-    ways->clear();
+    wayids.clear();
   }
   
-//   std::cout << "Fetching nodes of these ways" << std::endl;
-  for(QVector<Way>::iterator w=ways->begin();w!=ways->end();++w) {
-    query.prepare("SELECT w.nid, n.lat, n.lon FROM wayNodes w INNER JOIN nodes n ON w.nid=n.id WHERE w.wid=:wid ORDER BY w.weight ASC");
-    query.bindValue(":wid", w->id);
+  w = 0;
+  ways->resize(wayids.size());
+  for(int i=0;i<wayids.size();i++) {
+    query.prepare("SELECT w.nid, n.lat, n.lon FROM wayNodes w INNER JOIN nodes n ON w.nid=n.id INNER JOIN ways wa ON w.wid=wa.wid WHERE w.wid=:wid AND wa.maxlat>:minlat AND wa.minlat<:maxlat AND wa.minlon<:maxlon AND wa.maxlon>:minlon ORDER BY w.weight ASC");
+    query.bindValue(":wid", wayids[i]);
+    query.bindValue(":minlat", minlat);
+    query.bindValue(":maxlat", maxlat);
+    query.bindValue(":minlon", minlon);
+    query.bindValue(":maxlon", maxlon);
     warn_query(&query);
     if(query.last()) {
-      w->nodes.resize(query.at()+1);
+      (*ways)[w].nodes.resize(query.at()+1);
       query.first();
       int n = 0;
       do {
-        w->nodes[n].id = query.value(0).toULongLong();
-        w->nodes[n].lat = query.value(1).toDouble();
-        w->nodes[n++].lon = query.value(2).toDouble();
+        (*ways)[w].nodes[n].id = query.value(0).toULongLong();
+        (*ways)[w].nodes[n].lat = query.value(1).toInt() / 1e6;
+        (*ways)[w].nodes[n++].lon = query.value(2).toInt() / 1e6;
       } while(query.next());
-    } else {
-      w->nodes.clear();
+      w++;
     }
   }
-//   std::cout << "done" << std::endl;
-//   db.commit();
+  ways->resize(w);
   return ways;
 }
 
@@ -218,7 +251,6 @@ bool OsmDataSource::cacheTile(int lon, int lat) {
   std::cout << "cacheTile" << std::endl;
   QSqlQuery query(db);
   
-  std::cout << "Caching tile (" << lat << ", " << lon << ")" << std::endl;
   
   query.prepare("SELECT latid FROM cache_contents WHERE latid=:latid AND lonid=:lonid");
   query.bindValue(":latid", lat);
@@ -227,6 +259,11 @@ bool OsmDataSource::cacheTile(int lon, int lat) {
   
   if(!query.next()) {
     // the tile isn't cached.  Fetch it
+    query.prepare("SELECT latid FROM cache_contents WHERE status=1");
+    warn_query(&query);
+    if(query.next())
+      return false;  // only send one request to the server at a time
+    std::cout << "Caching tile (" << lat << ", " << lon << ")" << std::endl;
     query.prepare("INSERT INTO cache_contents (latid, lonid, status) VALUES (:latid, :lonid, :status)");
     query.bindValue(":latid", lat);
     query.bindValue(":lonid", lon);
@@ -243,30 +280,6 @@ OsmDataSource::~OsmDataSource() {
 }
 
 /**
- * XapiFetcher - a wrapper for accessing OSM extended API
- */
-// XapiFetcher::XapiFetcher() {
-//   net = new QNetworkAccessManager(this);
-//   busy = false;
-//   connect(net, SIGNAL(finished(QNetworkReply *)), this, SLOT(replyFinished(QNetworkReply *)));
-// }
-// 
-// XapiFetcher::fetch(double minlat, double minlon, double maxlat, double maxlon) {
-//   QString url = QString("http://www.overpass-api.de/api/xapi?map?bbox=%1,%2,%3,%4")
-//                         .arg(minlon).arg(minlat).arg(maxlon).arg(maxlat);  //-2.4,51.3,-2.2,51.5
-//   busy = true;
-//   net->get(QNetworkRequest(QUrl(url)));
-// }
-// 
-// XapiFetcher::replyFinished(QNetworkReply *xapiReply) {
-//   QByteArray data = xapiReply->readAll();
-//   QString str(data);
-//   
-//   busy = false;
-// }
-
-
-/**
  * OsmParser - an XML parser for OSM data
  **/
 OsmParser::OsmParser(QSqlDatabase *pdb) : QXmlDefaultHandler() {
@@ -275,14 +288,37 @@ OsmParser::OsmParser(QSqlDatabase *pdb) : QXmlDefaultHandler() {
 
 bool OsmParser::startDocument() {
   inMarkup = false;
-//   nodes.clear();
-  wayTagCount = 0;
+//   wayTagCount = 0;
   wayTagKeyCount = 0;
+  newWays.clear();
   db->transaction();
+  
+  std::cout << "DB transaction..." << std::endl;
+  
+  QSqlQuery query(*db);
+  // make a hash table of all the node key to integer values to save time querying the database
+  // and the local hash because the query won't show new keys until commit() and running that for
+  // every record makes this painfully slow.
+  query.prepare("SELECT kid, name FROM wayKeys");
+  warn_query(&query);
+  wayTagNames.clear();
+  while(query.next()) {
+    wayTagNames.insert(query.value(1).toString(), query.value(1).toULongLong());
+    wayTagKeyCount = qMax(wayTagKeyCount, query.value(1).toULongLong());
+  }
+  
+  query.prepare("SELECT tid FROM wayTags");
+  warn_query(&query);
+  if(query.last()) {
+    wayTagCount = query.at();
+  } else {
+    wayTagCount = 0;
+  }
   return true;
 }
 
 bool OsmParser::startElement(const QString &, const QString &, const QString &name, const QXmlAttributes &attrs) {
+  std::cout << "Start element " << name.toStdString() << std::endl;
   if(inMarkup) {
     if(name == "node") {
       double lat = NAN, lon = NAN;
@@ -296,8 +332,7 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
         if(attrs.localName(i) == "lon")
           lon = attrs.value(i).toDouble();
       }
-//     std::cout << "Node [" << id << "] = (" << lat << ", " << lon << ")" << std::endl;
-//       nodes.append(Node(id, lat, lon));
+      
       QSqlQuery query;
       query.prepare("SELECT * FROM nodes WHERE id=:id");
       query.bindValue(":id", id);
@@ -311,13 +346,11 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
       } else {
         query.prepare("INSERT INTO nodes (id, lat, lon) VALUES (:id, :lat, :lon)");
         query.bindValue(":id", id);
-        query.bindValue(":lat", lat);
-        query.bindValue(":lon", lon);
+        query.bindValue(":lat", (int)round(lat*1e6));
+        query.bindValue(":lon", (int)round(lon*1e6));
         warn_query(&query);
-//         std::cout << query.executedQuery().toStdString() << std::endl;
       }
     } else if(name == "way") {
-//       unsigned long id = -1;
       wayNodeOrder = 0;
       
       for(int i=0;i<attrs.count();i++) {
@@ -327,19 +360,25 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
       
       QSqlQuery query(*db);
       
-      query.prepare("INSERT INTO ways (wid) VALUES (:wid)");
+      query.prepare("SELECT wid FROM ways WHERE wid=:wid");
       query.bindValue(":wid", currentWay);
       warn_query(&query);
+      if(!query.next()) {
+        // only save this way if it's a new one, might over-lap from a neighbouring tile we have
+        // already fetched.
+        
+        // keep track of ways we've added this time and we'll go through and generate the min and
+        // max lat and lon after the node changes have been committed
+        newWays.append(currentWay);
       
-//       ways.append(Way(id));
-      inWay = true;
+        inWay = true;
+      }
     } else if(name == "nd" && inWay) {
       unsigned long long ref = -1;
       for(int i=0;i<attrs.count();i++) {
         if(attrs.localName(i) == "ref")
           ref = attrs.value(i).toLong();
       }
-//       ways.last().nodes.append(ref);
       QSqlQuery query;
       
       query.prepare("INSERT INTO wayNodes (wid, nid, weight) VALUES (:wid, :nid, :weight)");
@@ -387,9 +426,64 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
 bool OsmParser::endElement(const QString&, const QString &, const QString &name) {
   if(name == "osm") {
     inMarkup = false;
-    db->commit();
+//     db->commit();
   } else if(name == "way") {
     inWay = false;
   }
+  return true;
+}
+
+bool OsmParser::endDocument() {
+  QSqlQuery query(*db);
+  db->commit();
+  std::cout << "Commit!" << std::endl;
+  std::cout << "Make indices" << std::endl;
+  query.prepare("CREATE INDEX wayIndex ON wayNodes (wid ASC, weight ASC)");
+  warn_query(&query);
+  
+  query.prepare("CREATE INDEX latind ON nodes (lat)");
+  warn_query(&query);
+  
+  query.prepare("CREATE INDEX lonind ON nodes (lon)");
+  warn_query(&query);
+  
+  db->transaction();
+  std::cout << "Getting bounds of " << newWays.size() << " new ways" << std::endl;
+  for(int i=0;i<newWays.size();i++) {
+    int wayMinLon, wayMinLat, wayMaxLon, wayMaxLat;
+    query.prepare("SELECT MAX(n.lat) FROM nodes n INNER JOIN wayNodes w ON w.nid=n.id WHERE w.wid=:wid");
+    query.bindValue(":wid", newWays[i]);
+    warn_query(&query);
+    query.next();
+    wayMaxLat = query.value(0).toInt();
+    
+    query.prepare("SELECT MIN(n.lat) FROM nodes n INNER JOIN wayNodes w ON w.nid=n.id WHERE w.wid=:wid");
+    query.bindValue(":wid", newWays[i]);
+    warn_query(&query);
+    query.next();
+    wayMinLat = query.value(0).toInt();
+    
+    query.prepare("SELECT MAX(n.lon) FROM nodes n INNER JOIN wayNodes w ON w.nid=n.id WHERE w.wid=:wid");
+    query.bindValue(":wid", newWays[i]);
+    warn_query(&query);
+    query.next();
+    wayMaxLon = query.value(0).toInt();
+    
+    query.prepare("SELECT MIN(n.lon) FROM nodes n INNER JOIN wayNodes w ON w.nid=n.id WHERE w.wid=:wid");
+    query.bindValue(":wid", newWays[i]);
+    warn_query(&query);
+    query.next();
+    wayMinLon = query.value(0).toInt();
+    
+    query.prepare("INSERT INTO ways (wid, minlat, minlon, maxlat, maxlon) VALUES (:wid, :minlat, :minlon, :maxlat, :maxlon)");
+    query.bindValue(":wid", newWays[i]);
+    query.bindValue(":minlat", wayMinLat);
+    query.bindValue(":minlon", wayMinLon);
+    query.bindValue(":maxlat", wayMaxLat);
+    query.bindValue(":maxlon", wayMaxLon);
+    warn_query(&query);
+  }
+  db->commit();
+  std::cout << "Last commit!" << std::endl;
   return true;
 }

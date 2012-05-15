@@ -19,6 +19,7 @@
 OsmWidget::OsmWidget(QWidget *parent) : QGLWidget(QGLFormat(QGL::SampleBuffers), parent) {
   lonCentre = -2.3;
   latCentre = 51.4;
+  renderFast = false;
   
   osm = new OsmDataSource();
   std::cout <<"Setting zoom state..." << std::endl;
@@ -73,9 +74,10 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   painter.setRenderHint(QPainter::Antialiasing);
   painter.setBrush(QBrush(QColor(0xff, 0xff, 0xee)));
   painter.setPen(QPen(QBrush(QColor(0x20,0x20,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-  painter.fillRect(QRect((int)round(-2.4*sf), (int)round(51.5*sf), (int)round(0.2 * sf), (int)round(-0.2*sf)),QBrush(QColor(0xf1,0xee,0xe8)));
+  painter.fillRect(QRect((int)round(lonc-wDegrees *width()*sf), (int)round(latc-hDegrees*height()*sf), (int)round(wDegrees*width() * sf), (int)round(hDegrees*height()*sf)),QBrush(QColor(0xf1,0xee,0xe8)));
   painter.drawRect(QRect(-20, 10, 300, -300));
   painter.setBrush(QBrush(QColor(0,0,0), Qt::NoBrush));
+  
   
   QVector<Way> *ways;
   if(renderFast) {
@@ -111,6 +113,7 @@ void OsmWidget::paintEvent(QPaintEvent *) {
     painter.setBrush(QBrush(QColor(0,0,0), Qt::NoBrush));
     painter.drawPath(path[0]);
   } else {
+    osm->selectArea(latc+hDegrees*height(),lonc-wDegrees*width(), latc-hDegrees*height(),lonc+wDegrees*width());
     QVector<QPainterPath> path(8);
     ways = osm->getWays("highway", "motorway");
     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
