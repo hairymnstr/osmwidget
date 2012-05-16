@@ -7,6 +7,7 @@
 #include <QSlider>
 #include <QWidget>
 #include <QGLWidget>
+#include <QFont>
 #include <QPaintEvent>
 #include <QImage>
 
@@ -20,6 +21,7 @@ OsmWidget::OsmWidget(QWidget *parent) : QGLWidget(QGLFormat(QGL::SampleBuffers),
   lonCentre = -2.3;
   latCentre = 51.4;
   renderFast = false;
+  path.resize(8);
   
   osm = new OsmDataSource();
   std::cout <<"Setting zoom state..." << std::endl;
@@ -57,120 +59,121 @@ void OsmWidget::paintEvent(QPaintEvent *) {
 
   painter.setRenderHint(QPainter::Antialiasing);
   painter.setBrush(QBrush(QColor(0xff, 0xff, 0xee)));
-  painter.setPen(QPen(QBrush(QColor(0x20,0x20,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-  painter.fillRect(QRect((int)round(lonc-wDegrees *width()*sf), (int)round(latc-hDegrees*height()*sf), (int)round(wDegrees*width() * sf), (int)round(hDegrees*height()*sf)),QBrush(QColor(0xf1,0xee,0xe8)));
-  painter.drawRect(QRect(-20, 10, 300, -300));
+//   painter.setPen(QPen(QBrush(QColor(0x20,0x20,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+  painter.fillRect(QRect((int)round((lonc-wDegrees *width()/2)*sf), (int)round((latc-hDegrees*height()/2)*sf), (int)round(wDegrees*width() * sf), (int)round(hDegrees*height()*sf)),QBrush(QColor(0xf1,0xee,0xe8)));
+//   painter.drawRect(QRect(-20, 10, 300, -300));
   painter.setBrush(QBrush(QColor(0,0,0), Qt::NoBrush));
-  
-  
-  QVector<Way> *ways;
+
+//   QVector<Way> *ways;
   if(renderFast) {
-    QVector<QPainterPath> path(2);
-    ways = osm->getWays("highway", "trunk");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("highway", "primary");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("waterway", "riverbank");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[1].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[1].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
+//     QVector<QPainterPath> path(2);
+//     ways = osm->getWays("highway", "trunk");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("highway", "primary");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("waterway", "riverbank");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[1].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[1].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
     painter.setPen(QPen(QBrush(QColor(0x20,0x20,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.setBrush(QBrush(QColor(0x40,0x40,0xff)));
-    painter.drawPath(path[1].simplified());
-    painter.setPen(QPen(QBrush(QColor(0,0,0)), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.drawPath(path[7]);
     painter.setBrush(QBrush(QColor(0,0,0), Qt::NoBrush));
+    painter.setPen(QPen(QBrush(QColor(0,0,0)), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.drawPath(path[1]);
+    painter.setPen(QPen(QBrush(QColor(0,0,0)), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[0]);
   } else {
-    osm->selectArea(latc+hDegrees*height(),lonc-wDegrees*width(), latc-hDegrees*height(),lonc+wDegrees*width());
-    QVector<QPainterPath> path(8);
-    ways = osm->getWays("highway", "motorway");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("highway", "trunk");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[1].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[1].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("highway", "primary");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[2].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[2].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("highway", "secondary");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[3].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[3].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("highway", "tertiary");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[4].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[4].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("highway", "residential");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("highway", "unclassified");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("waterway", "canal");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[6].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[6].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
-    ways = osm->getWays("waterway", "riverbank");
-    for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-      path[7].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-      for(int n=1;n<w->nodes.size();n++) {
-        path[7].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-      }
-    }
-    delete ways;
+//     osm->selectArea(latc+hDegrees*height(),lonc-wDegrees*width(), latc-hDegrees*height(),lonc+wDegrees*width());
+//     QVector<QPainterPath> path(8);
+//     ways = osm->getWays("highway", "motorway");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("highway", "trunk");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[1].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[1].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("highway", "primary");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[2].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[2].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("highway", "secondary");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[3].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[3].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("highway", "tertiary");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[4].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[4].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("highway", "residential");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("highway", "unclassified");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("waterway", "canal");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[6].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[6].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
+//     ways = osm->getWays("waterway", "riverbank");
+//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+//       path[7].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+//       for(int n=1;n<w->nodes.size();n++) {
+//         path[7].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+//       }
+//     }
+//     delete ways;
     
     painter.setPen(QPen(QBrush(QColor(0x40,0x40,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.setBrush(QBrush(QColor(0x80,0x80,0xff)));
@@ -229,6 +232,9 @@ void OsmWidget::paintEvent(QPaintEvent *) {
     painter.drawText(QPoint(20, height()-10), QString("%1 m").arg(dist));
   }
   
+  painter.setFont(QFont("sans-serif", 6));
+  painter.drawText(QPoint(width()-250, height()-10), QString("Map data Copyright OpenStreetMap contributors, CC BY-SA"));
+  
   painter.end();
   glDisable(GL_MULTISAMPLE);
 //   std::cout << "Done." << std::endl;
@@ -257,13 +263,16 @@ void OsmWidget::mouseReleaseEvent(QMouseEvent *event) {
   if(event->button() == Qt::LeftButton) {
     renderFast=false;
     translateView(event->x() - dragStartX, event->y() - dragStartY);
+    updateCache();
+    updatePaths();
     update();
   }
 }
 
-// void OsmWidget::setOsmSource(OsmDataSource *p) {
-//   osm = p;
-// }
+void OsmWidget::resizeEvent(QResizeEvent *event) {
+  updateCache();
+  updatePaths();
+}
 
 void OsmWidget::setZoom(int value) {
   double wibble, latTop, lonRight;
@@ -275,26 +284,8 @@ void OsmWidget::setZoom(int value) {
   wDegrees = (lonRight - lonCentre) * zoom / 1000.0;
   hDegrees = -(latTop - latCentre) * zoom / 1000.0;          // flip sign so origin is bottom left
   
-  double lon = wDegrees * width();
-  double lat = hDegrees * height();
-  double lonMin = lonCentre - lon/2.0;
-  double lonMax = lonCentre + lon/2.0;
-  double latMin = latCentre - lat/2.0;
-  double latMax = latCentre + lat/2.0;
-  
-  int lonMinCache = (int)floor(lonMin * 5);
-  int lonMaxCache = (int)ceil(lonMax * 5);
-  int latMinCache = (int)floor(latMin * 5);
-  int latMaxCache = (int)ceil(latMax * 5);
-  
-  for(int i = lonMinCache;i<=lonMaxCache;i++) {
-    for(int j = latMinCache;j<=latMaxCache;j++) {
-      std::cout << "Caching the tile (" << j << ", " << i << ")" << std::endl;
-//       std::cout << "osm = " << osm << std::endl;
-      osm->cacheTile(i,j);
-      std::cout << "Done." << std::endl;
-    }
-  }
+  updateCache();
+  updatePaths();
   
   update();
 }
@@ -302,7 +293,9 @@ void OsmWidget::setZoom(int value) {
 void OsmWidget::translateView(int x, int y) {
   lonCentre += -x * wDegrees;
   latCentre += -y * hDegrees;
-  
+}
+
+void OsmWidget::updateCache() {
   // check and see what tiles will be displayed now
   double lon = wDegrees * width();
   double lat = hDegrees * width();
@@ -321,6 +314,85 @@ void OsmWidget::translateView(int x, int y) {
       osm->cacheTile(i,j);
     }
   }
+}
+
+void OsmWidget::updatePaths() {
+  int sf = 10000;
+  QVector<Way> *ways;
+  osm->selectArea(latCentre+hDegrees*height(),lonCentre-wDegrees*width(), latCentre-hDegrees*height(),lonCentre+wDegrees*width());
+//   QVector<QPainterPath> path(8);
+  ways = osm->getWays("highway", "motorway");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
+  ways = osm->getWays("highway", "trunk");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[1].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[1].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
+  ways = osm->getWays("highway", "primary");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[2].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[2].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
+  ways = osm->getWays("highway", "secondary");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[3].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[3].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
+  ways = osm->getWays("highway", "tertiary");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[4].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[4].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
+  ways = osm->getWays("highway", "residential");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
+  ways = osm->getWays("highway", "unclassified");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
+  ways = osm->getWays("waterway", "canal");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[6].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[6].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
+  ways = osm->getWays("waterway", "riverbank");
+  for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
+    path[7].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    for(int n=1;n<w->nodes.size();n++) {
+      path[7].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+    }
+  }
+  delete ways;
 }
 
 OsmWidget::~OsmWidget() {
