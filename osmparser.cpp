@@ -109,11 +109,35 @@ OsmDataSource::OsmDataSource() {
 //   std::cout << this << std::endl;
 }
 
+bool OsmDataSource::cacheTile(int lon, int lat) {
+//   std::cout << "cacheTile" << std::endl;
+  QSqlQuery query(db);
+  
+  
+  query.prepare("SELECT latid FROM cache_contents WHERE latid=:latid AND lonid=:lonid");
+  query.bindValue(":latid", lat);
+  query.bindValue(":lonid", lon);
+  warn_query(&query);
+  
+  if(!query.next()) {
+    // the tile isn't cached.  Fetch it
+    query.prepare("SELECT latid FROM cache_contents WHERE status=1");
+    warn_query(&query);
+    if(query.next())
+      return false;  // only send one request to the server at a time
+//     std::cout << "Caching tile (" << lat << ", " << lon << ")" << std::endl;
+    query.prepare("INSERT INTO cache_contents (latid, lonid, status) VALUES (:latid, :lonid, :status)");
+    query.bindValue(":latid", lat);
+    query.bindValue(":lonid", lon);
+    query.bindValue(":status", STATUS_PENDING);
+    warn_query(&query);
+    fetchData(lat/5.0-latStep/2, lon/5.0-lonStep/2, lat/5.0+latStep/2, lon/5.0+lonStep/2);
+  }
+  return true;
+}
+
 void OsmDataSource::fetchData(double minlat, double minlon, double maxlat, double maxlon) {
-  std::cout << "fetchData" << std::endl;
-//   std::cout << this << std::endl;
-//   QNetworkAccessManager *  net = new QNetworkAccessManager();
-//   connect(net, SIGNAL(finished(QNetworkReply *)), this, SLOT(parseData(QNetworkReply *)));
+//   std::cout << "fetchData" << std::endl;
 
   QString url = QString("http://www.overpass-api.de/api/xapi?map?bbox=%1,%2,%3,%4")
                         .arg(minlon).arg(minlat).arg(maxlon).arg(maxlat);  //-2.4,51.3,-2.2,51.5
@@ -125,45 +149,64 @@ void OsmDataSource::fetchData(double minlat, double minlon, double maxlat, doubl
 
 void OsmDataSource::parseData(QNetworkReply *reply) {
   QSqlQuery query(db);
+  QString url = reply->url().toString();
+  QStringList bbox;
+  if(url.lastIndexOf("?bbox") > -1) {
+    bbox = url.mid(url.lastIndexOf("?bbox") + 6).split(",");
   
-  // need to figure out what area this data corresponds to
-  if(reply->url().hasQueryItem("bbox")) {
-    QStringList bbox = reply->url().queryItemValue("bbox").split(",");
-    double minlon = bbox[0].toDouble();
-    double minlat = bbox[1].toDouble();
-//     double maxlon = bbox[2].toDouble();
-//     double maxlat = bbox[3].toDouble();
-    
-    query.prepare("UPDATE cache_contents SET status=:status WHERE latid=:latid AND lonid=:lonid");
-    query.bindValue(":status", STATUS_FETCHED);
-    query.bindValue(":latid", (int)((minlon + lonStep/2) * 5));
-    query.bindValue(":lonid", (int)((minlat + latStep/2) * 5));
-    warn_query(&query);
-    
-//     std::cout << reply->url().queryItemValue("bbox").toStdString() << std::endl;
+    if(reply->error() == QNetworkReply::NoError) {
+      // need to figure out what area this data corresponds to
+      double minlon = bbox[0].toDouble();
+      double minlat = bbox[1].toDouble();
+//       std::cout << minlat << " " << minlon << std::endl;
+//       std::cout << (minlat + latStep/2.0) << " " << (minlon + lonStep/2.0) << std::endl;
+//       std::cout << (minlat + latStep/2.0)*5.0 << " " << (minlon + lonStep/2.0) * 5.0 << std::endl;
+//       std::cout << (int)round((minlat + latStep/2.0)*5.0) << " " << (int)round((minlon + lonStep/2.0) * 5.0) << std::endl;
+      
+      
+      query.prepare("UPDATE cache_contents SET status=:status WHERE latid=:latid AND lonid=:lonid");
+      query.bindValue(":status", STATUS_FETCHED);
+      query.bindValue(":latid", (int)round((minlat + latStep/2.0) * 5));
+      query.bindValue(":lonid", (int)round((minlon + lonStep/2.0) * 5));
+      warn_query(&query);
+//       std::cout << "latid: " << (int)round((minlat + latStep/2.0) * 5) << " lonid: " << (int)round((minlon + lonStep/2.0) * 5) << std::endl;
+//       query.prepare("SELECT latid, lonid, status FROM cache_contents");
+//       warn_query(&query);
+//       while(query.next()) {
+//         std::cout << "latid: " << query.value(0).toInt() << " lonid: " << query.value(1).toInt() << " status: " << query.value(2).toInt() << std::endl;
+//       }
+      
+      std::cout << "Received XML for " << reply->url().toString().toStdString() << std::endl;
+      
+      OsmParser *parser = new OsmParser(&db);
+      QXmlInputSource *source = new QXmlInputSource(reply);
+      QXmlSimpleReader *reader = new QXmlSimpleReader;
+      reader->setContentHandler(parser);
+      
+      reader->parse(source);
+      
+      delete reader;
+      delete source;
+      delete parser;
+      
+      
+      std::cout << "Parsed XML for " << reply->url().toString().toStdString() << std::endl;
+    } else {
+      std::cout << "Request for " << reply->url().toString().toStdString() << " Failed" << std::endl;
+      std::cout << "  " << reply->error() << ": " << reply->errorString().toStdString() << std::endl;
+      std::cout << "  Reply length: " << reply->size() << " bytes" << std::endl;
+      
+      double minlon = bbox[0].toDouble();
+      double minlat = bbox[1].toDouble();
+      
+      query.prepare("DELETE FROM cache_contents WHERE latid=:latid AND lonid=:lonid");
+      query.bindValue(":latid", (int)round((minlat + latStep/2)*5));
+      query.bindValue(":lonid", (int)round((minlon + lonStep/2)*5));
+      warn_query(&query);
+    }
+  } else {
+    std::cout << "Error handling URL, couldn't determine bounding box" << std::endl;
   }
-  
-  std::cout << "Received XML for " << reply->url().toString().toStdString() << std::endl;
-  
-  // in theory it's quicker to drop the index and then re-populate??
-  query.prepare("DROP INDEX IF EXISTS wayIndex");
-  warn_query(&query);
-  
-  OsmParser *parser = new OsmParser(&db);
-  QXmlInputSource *source = new QXmlInputSource(reply);
-  QXmlSimpleReader *reader = new QXmlSimpleReader;
-  reader->setContentHandler(parser);
-  
-  reader->parse(source);
-  
-  delete reader;
-  delete source;
-//   delete file;
-  delete parser;
-  
-  
-  std::cout << "Parsed XML for " << reply->url().toString().toStdString() << std::endl;
-  
 }
 
 void OsmDataSource::selectArea(double minlati, double minloni, double maxlati, double maxloni) {
@@ -196,6 +239,8 @@ QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
   QVector<unsigned long long> wayids;
   QVector<Way> *ways = new QVector<Way>;
   int w;
+  
+  std::cout << "getWays(" << byTag.toStdString() << ", " << value.toStdString() << ");" << std::endl;
   
   query.prepare("SELECT kid FROM wayKeys WHERE name=:name");
   query.bindValue(":name", byTag);
@@ -247,33 +292,6 @@ QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
   return ways;
 }
 
-bool OsmDataSource::cacheTile(int lon, int lat) {
-  std::cout << "cacheTile" << std::endl;
-  QSqlQuery query(db);
-  
-  
-  query.prepare("SELECT latid FROM cache_contents WHERE latid=:latid AND lonid=:lonid");
-  query.bindValue(":latid", lat);
-  query.bindValue(":lonid", lon);
-  warn_query(&query);
-  
-  if(!query.next()) {
-    // the tile isn't cached.  Fetch it
-    query.prepare("SELECT latid FROM cache_contents WHERE status=1");
-    warn_query(&query);
-    if(query.next())
-      return false;  // only send one request to the server at a time
-    std::cout << "Caching tile (" << lat << ", " << lon << ")" << std::endl;
-    query.prepare("INSERT INTO cache_contents (latid, lonid, status) VALUES (:latid, :lonid, :status)");
-    query.bindValue(":latid", lat);
-    query.bindValue(":lonid", lon);
-    query.bindValue(":status", STATUS_PENDING);
-    warn_query(&query);
-    fetchData(lat/5.0-0.2, lon/5.0-0.2, lat/5.0+0.2, lon/5.0+0.2);
-  }
-  return true;
-}
-
 OsmDataSource::~OsmDataSource() {
   if(db.isOpen())
     db.close();
@@ -314,11 +332,20 @@ bool OsmParser::startDocument() {
   } else {
     wayTagCount = 0;
   }
+  
+  // in theory it's quicker to drop the index and then re-populate??
+  query.prepare("DROP INDEX IF EXISTS wayIndex");
+  warn_query(&query);
+  query.prepare("DROP INDEX IF EXISTS latind");
+  warn_query(&query);
+  query.prepare("DROP INDEX IF EXISTS lonind");
+  warn_query(&query);
+  
   return true;
 }
 
 bool OsmParser::startElement(const QString &, const QString &, const QString &name, const QXmlAttributes &attrs) {
-  std::cout << "Start element " << name.toStdString() << std::endl;
+//   std::cout << "Start element " << name.toStdString() << std::endl;
   if(inMarkup) {
     if(name == "node") {
       double lat = NAN, lon = NAN;
@@ -339,8 +366,8 @@ bool OsmParser::startElement(const QString &, const QString &, const QString &na
       warn_query(&query);
       if(query.next()) {
         query.prepare("UPDATE nodes SET lat=:lat, lon=:lon WHERE id=:id");
-        query.bindValue(":lat", lat);
-        query.bindValue(":lon", lon);
+        query.bindValue(":lat", (int)round(lat*1e6));
+        query.bindValue(":lon", (int)round(lon*1e6));
         query.bindValue(":id", id);
         warn_query(&query);
       } else {
