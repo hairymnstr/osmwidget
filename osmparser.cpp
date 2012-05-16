@@ -17,7 +17,12 @@
 
 bool warn_query(QSqlQuery *query) {
   if(!query->exec()) {
-    std::cout << "SQL: \"" << query->executedQuery().toStdString() << "\" Failed" << std::endl;
+    std::cout << "SQL: \"" << query->lastQuery().toStdString() << "\" Failed" << std::endl;
+    QMapIterator<QString, QVariant> i(query->boundValues());
+    while(i.hasNext()) {
+      i.next();
+      std::cout << "  " << i.key().toStdString() << ": " << i.value().toString().toStdString() << std::endl;
+    }
     std::cout << "  " << query->lastError().text().toStdString() << std::endl << std::endl;
     return false;
   }
@@ -321,14 +326,14 @@ bool OsmParser::startDocument() {
   warn_query(&query);
   wayTagNames.clear();
   while(query.next()) {
-    wayTagNames.insert(query.value(1).toString(), query.value(1).toULongLong());
-    wayTagKeyCount = qMax(wayTagKeyCount, query.value(1).toULongLong());
+    wayTagNames.insert(query.value(1).toString(), query.value(0).toULongLong());
+    wayTagKeyCount = qMax(wayTagKeyCount, query.value(0).toULongLong()+1);
   }
   
   query.prepare("SELECT tid FROM wayTags");
   warn_query(&query);
   if(query.last()) {
-    wayTagCount = query.at();
+    wayTagCount = query.at()+1;
   } else {
     wayTagCount = 0;
   }

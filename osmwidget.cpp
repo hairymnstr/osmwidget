@@ -40,25 +40,9 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   glEnable(GL_MULTISAMPLE);
   QPainter painter(this);
 
-//   double wibble;
-//   double xWidthTop, xWidthBottom;
   int sf = 10000;
   
-//   calc_dist(51.5,-2.4, 51.5,-2.2, &xWidthTop, &wibble);
-//   calc_dist(51.3,-2.4, 51.3,-2.2, &xWidthBottom, &wibble);
-//   
-//   if((fabs(xWidthTop - xWidthBottom) / qMax(xWidthTop, xWidthBottom)) > 0.01) {
-//     std::cout << "Warning map aberration too large!!!" << std::endl;
-//   }
-
-//   double xWidth = (xWidthTop + xWidthBottom) / 2.0;
-//   double yHeight;
-//   calc_dist(51.3,-2.4, 51.5,-2.4, &yHeight, &wibble);
-  
   double lonc, latc;
-//   std::cout << "old: " << zoom * 0.2 / xWidth << " x " << zoom * 0.2 / yHeight << std::endl;
-//   wDegrees = zoom * 0.2 / xWidth;
-//   hDegrees = zoom * -0.2 / yHeight;
   
   if(renderFast) {
     lonc = lonCentre + wDegrees * -tempMoveX;
