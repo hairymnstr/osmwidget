@@ -16,6 +16,7 @@
 
 #include "osmwidget.hpp"
 #include "osmparser.hpp"
+#include "progresswidget.hpp"
 
 OsmWidget::OsmWidget(QWidget *parent) : QGLWidget(QGLFormat(QGL::SampleBuffers), parent) {
   lonCentre = -2.3;
@@ -408,6 +409,7 @@ int main(int argc, char **argv) {
   QWidget *win = new QWidget;
   
   QHBoxLayout *layout = new QHBoxLayout;
+  QVBoxLayout *vlayout = new QVBoxLayout;
   
   std::cout << "Making the OSM widget" << std::endl;
   
@@ -415,6 +417,7 @@ int main(int argc, char **argv) {
   
 //   osm->listWayTags();
 
+  ProgressWidget *tasks = new ProgressWidget;
   OsmWidget *surface;
   surface = new OsmWidget;
   
@@ -432,7 +435,9 @@ int main(int argc, char **argv) {
   
   std::cout << "Constructing UI" << std::endl;
   
-  layout->addWidget(surface);
+  vlayout->addWidget(surface,1);
+  vlayout->addWidget(tasks);
+  layout->addLayout(vlayout);
   layout->addWidget(slider);
   
   std::cout << "Showing window" << std::endl;
