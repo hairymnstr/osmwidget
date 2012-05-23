@@ -51,7 +51,8 @@ Way::Way() {
 //   nodes.clear();
 }
 
-OsmDataSource::OsmDataSource() {
+OsmDataSource::OsmDataSource(QObject *parent) : QObject(parent) {
+  connect(this, SIGNAL(destroyed(QObject *)), SLOT(destroy(QObject *)));
   latStep = 0.2;
   lonStep = 0.2;
   db = QSqlDatabase::addDatabase("QSQLITE");
@@ -297,10 +298,16 @@ QVector<Way> *OsmDataSource::getWays(QString byTag, QString value) {
   return ways;
 }
 
-OsmDataSource::~OsmDataSource() {
+void OsmDataSource::destroy(QObject *) {
+  std::cout << "Being destroyed" << std::endl;
   if(db.isOpen())
     db.close();
 }
+
+// OsmDataSource::~OsmDataSource() {
+//   if(db.isOpen())
+//     db.close();
+// }
 
 /**
  * OsmParser - an XML parser for OSM data
@@ -340,6 +347,8 @@ bool OsmParser::startDocument() {
   
   // in theory it's quicker to drop the index and then re-populate??
   query.prepare("DROP INDEX IF EXISTS wayIndex");
+  warn_query(&query);
+  query.prepare("DROP INDEX IF EXISTS wayTagIndex");
   warn_query(&query);
   query.prepare("DROP INDEX IF EXISTS latind");
   warn_query(&query);
@@ -471,6 +480,9 @@ bool OsmParser::endDocument() {
   std::cout << "Commit!" << std::endl;
   std::cout << "Make indices" << std::endl;
   query.prepare("CREATE INDEX wayIndex ON wayNodes (wid ASC, weight ASC)");
+  warn_query(&query);
+  
+  query.prepare("CREATE INDEX wayTagIndex ON wayTags (kid)");
   warn_query(&query);
   
   query.prepare("CREATE INDEX latind ON nodes (lat)");

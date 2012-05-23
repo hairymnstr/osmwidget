@@ -29,13 +29,13 @@ class OsmWidget : public QGLWidget {
     
   public:
     OsmWidget(QWidget *parent=0);
-    ~OsmWidget();
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
     void setOsmSource(OsmDataSource *);
     
   public slots:
     void setZoom(int);
+//     void destroy(QObject *);
 
   protected:
     void paintEvent(QPaintEvent *event);

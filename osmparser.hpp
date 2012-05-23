@@ -39,8 +39,8 @@ class OsmDataSource : public QObject {
   Q_OBJECT
   
   public:
-    OsmDataSource();
-    ~OsmDataSource();
+    OsmDataSource(QObject *parent=0);
+//     ~OsmDataSource();
     void selectArea(double, double, double, double);
     void fetchData(double, double, double, double);
     QVector<Way> *getWays(QString, QString);
@@ -48,6 +48,7 @@ class OsmDataSource : public QObject {
     
   public slots:
     void parseData(QNetworkReply *);
+    void destroy(QObject *);
     
   private:
     QSqlDatabase db;

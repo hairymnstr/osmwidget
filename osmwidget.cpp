@@ -19,12 +19,13 @@
 #include "progresswidget.hpp"
 
 OsmWidget::OsmWidget(QWidget *parent) : QGLWidget(QGLFormat(QGL::SampleBuffers), parent) {
+//   connect(this, SIGNAL(destroyed(QObject *)), SLOT(destroy(QObject *)));
   lonCentre = -2.3;
   latCentre = 51.4;
   renderFast = false;
   path.resize(8);
   
-  osm = new OsmDataSource();
+  osm = new OsmDataSource(this);
   std::cout <<"Setting zoom state..." << std::endl;
   std::cout << "Widget size " << width() << " x " << height() << std::endl;
   setZoom(20);
@@ -396,64 +397,68 @@ void OsmWidget::updatePaths() {
   delete ways;
 }
 
-OsmWidget::~OsmWidget() {
-  delete osm;
-}
-
-int main(int argc, char **argv) {
-  QApplication app(argc, argv);
-  
-  
-  std::cout << "Making window" << std::endl;
-  
-  QWidget *win = new QWidget;
-  
-  QHBoxLayout *layout = new QHBoxLayout;
-  QVBoxLayout *vlayout = new QVBoxLayout;
-  
-  std::cout << "Making the OSM widget" << std::endl;
-  
-//   osm->fetchData();
-  
-//   osm->listWayTags();
-
-  ProgressWidget *tasks = new ProgressWidget;
-  OsmWidget *surface;
-  surface = new OsmWidget;
-  
-//   std::cout << "Adding a data source to the new widget" << std::endl;
-  
-//   surface->setOsmSource(osm);
-  
-  std::cout << "Adding zoom bar" << std::endl;
-  
-  QSlider *slider = new QSlider(Qt::Vertical);
-  slider->setMaximum(20);
-  slider->setMinimum(1);
-  slider->setValue(20);
-  win->connect(slider, SIGNAL(sliderMoved(int)), surface, SLOT(setZoom(int)));
-  
-  std::cout << "Constructing UI" << std::endl;
-  
-  vlayout->addWidget(surface,1);
-  vlayout->addWidget(tasks);
-  layout->addLayout(vlayout);
-  layout->addWidget(slider);
-  
-  std::cout << "Showing window" << std::endl;
-  
-  win->setLayout(layout);
-  win->show();
-//   surface->show();
-
-  std::cout << "Running app" << std::endl;
-
-  int ret = app.exec();
-  
+// void OsmWidget::destroy(QObject *) {
 //   delete osm;
-  
-  return ret;
-}
+// }
+
+// OsmWidget::~OsmWidget() {
+//   delete osm;
+// }
+
+// int main(int argc, char **argv) {
+//   QApplication app(argc, argv);
+//   
+//   
+//   std::cout << "Making window" << std::endl;
+//   
+//   QWidget *win = new QWidget;
+//   
+//   QHBoxLayout *layout = new QHBoxLayout;
+//   QVBoxLayout *vlayout = new QVBoxLayout;
+//   
+//   std::cout << "Making the OSM widget" << std::endl;
+//   
+// //   osm->fetchData();
+//   
+// //   osm->listWayTags();
+// 
+//   ProgressWidget *tasks = new ProgressWidget;
+//   OsmWidget *surface;
+//   surface = new OsmWidget(win);
+//   
+// //   std::cout << "Adding a data source to the new widget" << std::endl;
+//   
+// //   surface->setOsmSource(osm);
+//   
+//   std::cout << "Adding zoom bar" << std::endl;
+//   
+//   QSlider *slider = new QSlider(Qt::Vertical);
+//   slider->setMaximum(20);
+//   slider->setMinimum(1);
+//   slider->setValue(20);
+//   win->connect(slider, SIGNAL(sliderMoved(int)), surface, SLOT(setZoom(int)));
+//   
+//   std::cout << "Constructing UI" << std::endl;
+//   
+//   vlayout->addWidget(surface,1);
+//   vlayout->addWidget(tasks);
+//   layout->addLayout(vlayout);
+//   layout->addWidget(slider);
+//   
+//   std::cout << "Showing window" << std::endl;
+//   
+//   win->setLayout(layout);
+//   win->show();
+// //   surface->show();
+// 
+//   std::cout << "Running app" << std::endl;
+// 
+//   int ret = app.exec();
+//   
+// //   delete osm;
+//   
+//   return ret;
+// }
 
 /**
  * calc_dist - find the range and heading between two pairs of WGS84 co-ordinates
