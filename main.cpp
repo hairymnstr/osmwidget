@@ -7,6 +7,7 @@ int main(int argc, char *argv[]) {
 
   app.setApplicationName("OsmApp");
   OsmApp osmApp;
+
   osmApp.show();
   return app.exec();
 }

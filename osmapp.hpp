@@ -1,5 +1,6 @@
 #include "osmwidget.hpp"
 #include <QMainWindow>
+#include <QLabel>
 
 class OsmApp : public QMainWindow {
   Q_OBJECT
@@ -12,4 +13,5 @@ class OsmApp : public QMainWindow {
     
   private:
     OsmWidget *osmWidget;
+    QLabel *latLonLabel;
 };

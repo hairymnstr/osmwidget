@@ -6,6 +6,8 @@
 #include <QMouseEvent>
 #include "osmparser.hpp"
 
+#define LATLONGRID 1
+
 class OsmWidget : public QGLWidget {
   Q_OBJECT
 
@@ -22,6 +24,10 @@ class OsmWidget : public QGLWidget {
     double wDegrees;
     double hDegrees;
     QVector<QPainterPath> path;
+    bool drawGrid;
+    int gridType;
+    double gridLatStep;
+    double gridLonStep;
     
     void translateView(int x, int y);
     void updateCache();
@@ -37,6 +43,9 @@ class OsmWidget : public QGLWidget {
     void setZoom(int);
 //     void destroy(QObject *);
 
+  signals:
+    void locationUpdateText(QString loc);
+    
   protected:
     void paintEvent(QPaintEvent *event);
     void mouseMoveEvent(QMouseEvent *event);

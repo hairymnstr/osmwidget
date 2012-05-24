@@ -19,10 +19,13 @@
 #include "progresswidget.hpp"
 
 OsmWidget::OsmWidget(QWidget *parent) : QGLWidget(QGLFormat(QGL::SampleBuffers), parent) {
-//   connect(this, SIGNAL(destroyed(QObject *)), SLOT(destroy(QObject *)));
   lonCentre = -2.3;
   latCentre = 51.4;
   renderFast = false;
+  drawGrid = true;
+  gridType = LATLONGRID;
+  gridLatStep = 0.1;
+  gridLonStep = 0.1;
   path.resize(8);
   
   osm = new OsmDataSource(this);
@@ -52,8 +55,8 @@ void OsmWidget::paintEvent(QPaintEvent *) {
     lonc = lonCentre + wDegrees * -tempMoveX;
     latc = latCentre + hDegrees * -tempMoveY;
   } else {
-    lonc = lonCentre;//-2.3;
-    latc = latCentre;//51.4;
+    lonc = lonCentre;
+    latc = latCentre;
   }
   
   painter.scale(1.0 / (wDegrees * sf), 1.0 / (hDegrees * sf));
@@ -61,38 +64,31 @@ void OsmWidget::paintEvent(QPaintEvent *) {
 
   painter.setRenderHint(QPainter::Antialiasing);
   painter.setBrush(QBrush(QColor(0xff, 0xff, 0xee)));
-//   painter.setPen(QPen(QBrush(QColor(0x20,0x20,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
   painter.fillRect(QRect((int)round((lonc-wDegrees *width()/2)*sf), (int)round((latc-hDegrees*height()/2)*sf), (int)round(wDegrees*width() * sf), (int)round(hDegrees*height()*sf)),QBrush(QColor(0xf1,0xee,0xe8)));
-//   painter.drawRect(QRect(-20, 10, 300, -300));
+
   painter.setBrush(QBrush(QColor(0,0,0), Qt::NoBrush));
 
-//   QVector<Way> *ways;
+  if(drawGrid) {
+    if(gridType == LATLONGRID) {
+      double latmin = latc + (height() * hDegrees) / 2.0;
+      double lonmin = lonc - (width() * wDegrees) / 2.0;
+      double latmax = latc - (height() * hDegrees) / 2.0;
+      double lonmax = lonc + (width() * wDegrees) / 2.0;
+      std::cout << latmin << " " << latmax << "  " << lonmin << " " << lonmax << std::endl;
+      double la = ceil(latmin / gridLatStep) * gridLatStep;
+      while(la < latmax) {
+        painter.drawLine(QPointF(lonmin * sf, la * sf), QPointF(lonmax * sf, la * sf));
+        la += gridLatStep;
+      }
+      double lo = ceil(lonmin / gridLonStep) * gridLonStep;
+      while(lo < lonmax) {
+        painter.drawLine(QPointF(lo * sf, latmin * sf), QPointF(lo * sf, latmax * sf));
+        lo += gridLonStep;
+      }
+    }
+  }
+  
   if(renderFast) {
-//     QVector<QPainterPath> path(2);
-//     ways = osm->getWays("highway", "trunk");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("highway", "primary");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("waterway", "riverbank");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[1].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[1].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
     painter.setPen(QPen(QBrush(QColor(0x20,0x20,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.setBrush(QBrush(QColor(0x40,0x40,0xff)));
     painter.drawPath(path[7]);
@@ -102,80 +98,6 @@ void OsmWidget::paintEvent(QPaintEvent *) {
     painter.setPen(QPen(QBrush(QColor(0,0,0)), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[0]);
   } else {
-//     osm->selectArea(latc+hDegrees*height(),lonc-wDegrees*width(), latc-hDegrees*height(),lonc+wDegrees*width());
-//     QVector<QPainterPath> path(8);
-//     ways = osm->getWays("highway", "motorway");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("highway", "trunk");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[1].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[1].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("highway", "primary");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[2].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[2].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("highway", "secondary");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[3].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[3].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("highway", "tertiary");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[4].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[4].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("highway", "residential");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("highway", "unclassified");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("waterway", "canal");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[6].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[6].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
-//     ways = osm->getWays("waterway", "riverbank");
-//     for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-//       path[7].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
-//       for(int n=1;n<w->nodes.size();n++) {
-//         path[7].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
-//       }
-//     }
-//     delete ways;
     
     painter.setPen(QPen(QBrush(QColor(0x40,0x40,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.setBrush(QBrush(QColor(0x80,0x80,0xff)));
@@ -239,7 +161,6 @@ void OsmWidget::paintEvent(QPaintEvent *) {
   
   painter.end();
   glDisable(GL_MULTISAMPLE);
-//   std::cout << "Done." << std::endl;
 }
 
 void OsmWidget::mousePressEvent(QMouseEvent *event) {
@@ -279,7 +200,7 @@ void OsmWidget::resizeEvent(QResizeEvent *event) {
 void OsmWidget::setZoom(int value) {
   double wibble, latTop, lonRight;
   zoom = value;
-  std::cout << "Calculating scaling factors" << std::endl;
+//   std::cout << "Calculating scaling factors" << std::endl;
   geodesic_fwd(latCentre, lonCentre, 0, 1000, &latTop, &wibble);
   geodesic_fwd(latCentre, lonCentre, 90, 1000, &wibble, &lonRight);
   
@@ -295,6 +216,7 @@ void OsmWidget::setZoom(int value) {
 void OsmWidget::translateView(int x, int y) {
   lonCentre += -x * wDegrees;
   latCentre += -y * hDegrees;
+  emit locationUpdateText(QString("%1, %2").arg(latCentre).arg(lonCentre));
 }
 
 void OsmWidget::updateCache() {
@@ -322,7 +244,6 @@ void OsmWidget::updatePaths() {
   int sf = 10000;
   QVector<Way> *ways;
   osm->selectArea(latCentre+hDegrees*height(),lonCentre-wDegrees*width(), latCentre-hDegrees*height(),lonCentre+wDegrees*width());
-//   QVector<QPainterPath> path(8);
   ways = osm->getWays("highway", "motorway");
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
     path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
@@ -396,69 +317,6 @@ void OsmWidget::updatePaths() {
   }
   delete ways;
 }
-
-// void OsmWidget::destroy(QObject *) {
-//   delete osm;
-// }
-
-// OsmWidget::~OsmWidget() {
-//   delete osm;
-// }
-
-// int main(int argc, char **argv) {
-//   QApplication app(argc, argv);
-//   
-//   
-//   std::cout << "Making window" << std::endl;
-//   
-//   QWidget *win = new QWidget;
-//   
-//   QHBoxLayout *layout = new QHBoxLayout;
-//   QVBoxLayout *vlayout = new QVBoxLayout;
-//   
-//   std::cout << "Making the OSM widget" << std::endl;
-//   
-// //   osm->fetchData();
-//   
-// //   osm->listWayTags();
-// 
-//   ProgressWidget *tasks = new ProgressWidget;
-//   OsmWidget *surface;
-//   surface = new OsmWidget(win);
-//   
-// //   std::cout << "Adding a data source to the new widget" << std::endl;
-//   
-// //   surface->setOsmSource(osm);
-//   
-//   std::cout << "Adding zoom bar" << std::endl;
-//   
-//   QSlider *slider = new QSlider(Qt::Vertical);
-//   slider->setMaximum(20);
-//   slider->setMinimum(1);
-//   slider->setValue(20);
-//   win->connect(slider, SIGNAL(sliderMoved(int)), surface, SLOT(setZoom(int)));
-//   
-//   std::cout << "Constructing UI" << std::endl;
-//   
-//   vlayout->addWidget(surface,1);
-//   vlayout->addWidget(tasks);
-//   layout->addLayout(vlayout);
-//   layout->addWidget(slider);
-//   
-//   std::cout << "Showing window" << std::endl;
-//   
-//   win->setLayout(layout);
-//   win->show();
-// //   surface->show();
-// 
-//   std::cout << "Running app" << std::endl;
-// 
-//   int ret = app.exec();
-//   
-// //   delete osm;
-//   
-//   return ret;
-// }
 
 /**
  * calc_dist - find the range and heading between two pairs of WGS84 co-ordinates
