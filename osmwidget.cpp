@@ -8,6 +8,7 @@
 #include <QWidget>
 #include <QGLWidget>
 #include <QFont>
+#include <QToolTip>
 #include <QPaintEvent>
 #include <QImage>
 
@@ -74,7 +75,7 @@ void OsmWidget::paintEvent(QPaintEvent *) {
       double lonmin = lonc - (width() * wDegrees) / 2.0;
       double latmax = latc - (height() * hDegrees) / 2.0;
       double lonmax = lonc + (width() * wDegrees) / 2.0;
-      std::cout << latmin << " " << latmax << "  " << lonmin << " " << lonmax << std::endl;
+//       std::cout << latmin << " " << latmax << "  " << lonmin << " " << lonmax << std::endl;
       double la = ceil(latmin / gridLatStep) * gridLatStep;
       while(la < latmax) {
         painter.drawLine(QPointF(lonmin * sf, la * sf), QPointF(lonmax * sf, la * sf));
@@ -123,6 +124,13 @@ void OsmWidget::paintEvent(QPaintEvent *) {
     painter.drawPath(path[0]);
     painter.setPen(QPen(QBrush(QColor(0xc0,0xc0,0xc0)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[0]);
+    
+    painter.setPen(QPen(QBrush(QColor(0xff,0x00,0x00)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    for(int i=0;i<pointLayers.size();i++) {
+      for(int j=0;j<pointLayers[i]->size();j++) {
+        painter.drawEllipse((*pointLayers[i])[j].y()*sf,(*pointLayers[i])[j].x()*sf,10,10);
+      }
+    }
   }
   painter.setTransform(QTransform());   // set identity
   
@@ -180,6 +188,12 @@ void OsmWidget::mouseMoveEvent(QMouseEvent *event) {
     tempMoveY = event->y() - dragStartY;
     update();
   }
+  if(tipFlags) {
+    double lonc = lonCentre + wDegrees * (event->x() - width()/2);
+    double latc = latCentre + hDegrees * (event->y() - height()/2);
+    QString tip = QString("%1, %2").arg(latc).arg(lonc);
+    QToolTip::showText(QPoint(event->x()+10, event->y()+10), tip, this);
+  }
 }
 
 void OsmWidget::mouseReleaseEvent(QMouseEvent *event) {
@@ -192,7 +206,7 @@ void OsmWidget::mouseReleaseEvent(QMouseEvent *event) {
   }
 }
 
-void OsmWidget::resizeEvent(QResizeEvent *event) {
+void OsmWidget::resizeEvent(QResizeEvent *) {
   updateCache();
   updatePaths();
 }
@@ -316,6 +330,16 @@ void OsmWidget::updatePaths() {
     }
   }
   delete ways;
+}
+
+void OsmWidget::addPointLayer(QList<QPointF> *points) {
+  pointLayers.append(points);
+  update();
+}
+
+void OsmWidget::enableCursorInfo(int flags) {
+  setMouseTracking(flags);
+  tipFlags = flags;
 }
 
 /**

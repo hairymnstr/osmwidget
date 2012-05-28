@@ -28,6 +28,8 @@ class OsmWidget : public QGLWidget {
     int gridType;
     double gridLatStep;
     double gridLonStep;
+    int tipFlags;
+    QList<QList<QPointF> *> pointLayers;
     
     void translateView(int x, int y);
     void updateCache();
@@ -38,6 +40,8 @@ class OsmWidget : public QGLWidget {
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
     void setOsmSource(OsmDataSource *);
+    void addPointLayer(QList<QPointF> *);
+    void enableCursorInfo(int);
     
   public slots:
     void setZoom(int);
