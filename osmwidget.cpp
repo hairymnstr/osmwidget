@@ -192,7 +192,7 @@ void OsmWidget::mouseMoveEvent(QMouseEvent *event) {
     double lonc = lonCentre + wDegrees * (event->x() - width()/2);
     double latc = latCentre + hDegrees * (event->y() - height()/2);
     QString tip = QString("%1, %2").arg(latc).arg(lonc);
-    QToolTip::showText(QPoint(event->x()+10, event->y()+10), tip, this);
+    QToolTip::showText(QPoint(event->x()+16, event->y()+16), tip, this);
   }
 }
 
