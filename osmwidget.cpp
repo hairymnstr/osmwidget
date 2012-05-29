@@ -44,46 +44,55 @@ QSize OsmWidget::sizeHint() const {
   return QSize(300, 200);
 }
 
+QPointF OsmWidget::toScreenCoordinates(double lat, double lon) {
+  double y = (lat - latCentre) / degreePerPixelY + height()/2;
+  double x = (lon - lonCentre) / degreePerPixelX + width()/2;
+  return QPointF(x, y);
+}
+
 void OsmWidget::paintEvent(QPaintEvent *) {
   glEnable(GL_MULTISAMPLE);
   QPainter painter(this);
 
-  int sf = 10000;
+//   int sf = 10000;
   
   double lonc, latc;
-  
+
+  painter.setRenderHint(QPainter::Antialiasing);
+  painter.setBrush(QBrush(QColor(0xff, 0xff, 0xee)));
+//   painter.fillRect(QRect((int)round((lonc-degreePerPixelX *width()/2)*sf), (int)round((latc-degreePerPixelY*height()/2)*sf), (int)round(degreePerPixelX*width() * sf), (int)round(degreePerPixelY*height()*sf)),QBrush(QColor(0xf1,0xee,0xe8)));
+  painter.fillRect(0, 0, width(), height(), QBrush(QColor(0xf1,0xee,0xe8)));
+
   if(renderFast) {
-    lonc = lonCentre + wDegrees * -tempMoveX;
-    latc = latCentre + hDegrees * -tempMoveY;
+    lonc = lonCentre + degreePerPixelX * -tempMoveX;
+    latc = latCentre + degreePerPixelY * -tempMoveY;
+    painter.translate(tempMoveX, tempMoveY);
   } else {
     lonc = lonCentre;
     latc = latCentre;
   }
   
-  painter.scale(1.0 / (wDegrees * sf), 1.0 / (hDegrees * sf));
-  painter.translate(-(lonc-wDegrees*width()/2)*sf, -(latc-hDegrees*height()/2)*sf);
+//   painter.scale(1.0 / (degreePerPixelX * sf), 1.0 / (degreePerPixelY * sf));
+//   painter.translate(-(lonc-degreePerPixelX*width()/2)*sf, -(latc-degreePerPixelY*height()/2)*sf);
 
-  painter.setRenderHint(QPainter::Antialiasing);
-  painter.setBrush(QBrush(QColor(0xff, 0xff, 0xee)));
-  painter.fillRect(QRect((int)round((lonc-wDegrees *width()/2)*sf), (int)round((latc-hDegrees*height()/2)*sf), (int)round(wDegrees*width() * sf), (int)round(hDegrees*height()*sf)),QBrush(QColor(0xf1,0xee,0xe8)));
 
   painter.setBrush(QBrush(QColor(0,0,0), Qt::NoBrush));
 
   if(drawGrid) {
     if(gridType == LATLONGRID) {
-      double latmin = latc + (height() * hDegrees) / 2.0;
-      double lonmin = lonc - (width() * wDegrees) / 2.0;
-      double latmax = latc - (height() * hDegrees) / 2.0;
-      double lonmax = lonc + (width() * wDegrees) / 2.0;
+      double latmin = latc + (height() * degreePerPixelY) / 2.0;
+      double lonmin = lonc - (width() * degreePerPixelX) / 2.0;
+      double latmax = latc - (height() * degreePerPixelY) / 2.0;
+      double lonmax = lonc + (width() * degreePerPixelX) / 2.0;
 //       std::cout << latmin << " " << latmax << "  " << lonmin << " " << lonmax << std::endl;
       double la = ceil(latmin / gridLatStep) * gridLatStep;
       while(la < latmax) {
-        painter.drawLine(QPointF(lonmin * sf, la * sf), QPointF(lonmax * sf, la * sf));
+        painter.drawLine(toScreenCoordinates(la, lonmin), toScreenCoordinates(la, lonmax));
         la += gridLatStep;
       }
       double lo = ceil(lonmin / gridLonStep) * gridLonStep;
       while(lo < lonmax) {
-        painter.drawLine(QPointF(lo * sf, latmin * sf), QPointF(lo * sf, latmax * sf));
+        painter.drawLine(toScreenCoordinates(latmin, lo), toScreenCoordinates(latmax, lo));
         lo += gridLonStep;
       }
     }
@@ -104,31 +113,31 @@ void OsmWidget::paintEvent(QPaintEvent *) {
     painter.setBrush(QBrush(QColor(0x80,0x80,0xff)));
     painter.drawPath(path[7]);
     painter.setBrush(QBrush(QColor(0,0,0), Qt::NoBrush));
-    painter.setPen(QPen(QBrush(QColor(0x80,0x80,0xff)), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0x80,0x80,0xff)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[6]);
-    painter.setPen(QPen(QBrush(QColor(0xc0,0xc0,0xc0)), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0xc0,0xc0,0xc0)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     for(int i=0;i<6;i++) {
       painter.drawPath(path[i]);
     }
-    painter.setPen(QPen(QBrush(QColor(0xff,0xff,0xff)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0xff,0xff,0xff)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[5]);
-    painter.setPen(QPen(QBrush(QColor(0xff,0xff,0x80)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0xff,0xff,0x80)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[4]);
-    painter.setPen(QPen(QBrush(QColor(0xff,0x80,0x20)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0xff,0x80,0x20)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[3]);
     painter.setPen(QPen(QBrush(QColor(0x80,0,0)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[2]);
-    painter.setPen(QPen(QBrush(QColor(0x40,0x80,0x40)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0x40,0x80,0x40)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[1]);
-    painter.setPen(QPen(QBrush(QColor(0x00,0x00,0xd0)), 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0x00,0x00,0xd0)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[0]);
-    painter.setPen(QPen(QBrush(QColor(0xc0,0xc0,0xc0)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0xc0,0xc0,0xc0)), 0.1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.drawPath(path[0]);
     
-    painter.setPen(QPen(QBrush(QColor(0xff,0x00,0x00)), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(QBrush(QColor(0xff,0x00,0x00)), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     for(int i=0;i<pointLayers.size();i++) {
       for(int j=0;j<pointLayers[i]->size();j++) {
-        painter.drawEllipse((*pointLayers[i])[j].y()*sf,(*pointLayers[i])[j].x()*sf,10,10);
+        painter.drawEllipse(toScreenCoordinates((*pointLayers[i])[j].x(),(*pointLayers[i])[j].y()),5,5);
       }
     }
   }
@@ -189,8 +198,8 @@ void OsmWidget::mouseMoveEvent(QMouseEvent *event) {
     update();
   }
   if(tipFlags) {
-    double lonc = lonCentre + wDegrees * (event->x() - width()/2);
-    double latc = latCentre + hDegrees * (event->y() - height()/2);
+    double lonc = lonCentre + degreePerPixelX * (event->x() - width()/2);
+    double latc = latCentre + degreePerPixelY * (event->y() - height()/2);
     QString tip = QString("%1, %2").arg(latc).arg(lonc);
     QToolTip::showText(QPoint(event->x()+16, event->y()+16), tip, this);
   }
@@ -218,8 +227,8 @@ void OsmWidget::setZoom(int value) {
   geodesic_fwd(latCentre, lonCentre, 0, 1000, &latTop, &wibble);
   geodesic_fwd(latCentre, lonCentre, 90, 1000, &wibble, &lonRight);
   
-  wDegrees = (lonRight - lonCentre) * zoom / 1000.0;
-  hDegrees = -(latTop - latCentre) * zoom / 1000.0;          // flip sign so origin is bottom left
+  degreePerPixelX = (lonRight - lonCentre) * zoom / 1000.0;
+  degreePerPixelY = -(latTop - latCentre) * zoom / 1000.0;          // flip sign so origin is bottom left
   
   updateCache();
   updatePaths();
@@ -228,15 +237,15 @@ void OsmWidget::setZoom(int value) {
 }
 
 void OsmWidget::translateView(int x, int y) {
-  lonCentre += -x * wDegrees;
-  latCentre += -y * hDegrees;
+  lonCentre += -x * degreePerPixelX;
+  latCentre += -y * degreePerPixelY;
   emit locationUpdateText(QString("%1, %2").arg(latCentre).arg(lonCentre));
 }
 
 void OsmWidget::updateCache() {
   // check and see what tiles will be displayed now
-  double lon = wDegrees * width();
-  double lat = hDegrees * width();
+  double lon = degreePerPixelX * width();
+  double lat = degreePerPixelY * width();
   double lonMin = lonCentre - lon/2.0;
   double lonMax = lonCentre + lon/2.0;
   double latMin = latCentre - lat/2.0;
@@ -255,78 +264,86 @@ void OsmWidget::updateCache() {
 }
 
 void OsmWidget::updatePaths() {
-  int sf = 10000;
+//   int sf = 10000;
   QVector<Way> *ways;
-  osm->selectArea(latCentre+hDegrees*height(),lonCentre-wDegrees*width(), latCentre-hDegrees*height(),lonCentre+wDegrees*width());
+  osm->selectArea(latCentre+degreePerPixelY*height(),lonCentre-degreePerPixelX*width(), latCentre-degreePerPixelY*height(),lonCentre+degreePerPixelX*width());
   ways = osm->getWays("highway", "motorway");
+  path[0] = QPainterPath();
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[0].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[0].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[0].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[0].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;
   ways = osm->getWays("highway", "trunk");
+  path[1] = QPainterPath();
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[1].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[1].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[1].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[1].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;
   ways = osm->getWays("highway", "primary");
+  path[2] = QPainterPath();
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[2].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[2].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[2].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[2].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;
   ways = osm->getWays("highway", "secondary");
+  path[3] = QPainterPath();
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[3].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[3].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[3].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[3].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;
   ways = osm->getWays("highway", "tertiary");
+  path[4] = QPainterPath();
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[4].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[4].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[4].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[4].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;
   ways = osm->getWays("highway", "residential");
+  path[5] = QPainterPath();
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[5].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[5].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;
   ways = osm->getWays("highway", "unclassified");
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[5].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[5].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[5].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[5].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;
   ways = osm->getWays("waterway", "canal");
+  path[6] = QPainterPath();
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[6].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[6].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[6].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[6].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;
   ways = osm->getWays("waterway", "riverbank");
+  path[7] = QPainterPath();
   for(QVector<Way>::iterator w=ways->begin();w != ways->end();++w) {
-    path[7].moveTo((int)round(w->nodes.at(0).lon * sf), (int)round(w->nodes.at(0).lat * sf));
+    path[7].moveTo(toScreenCoordinates(w->nodes[0].lat, w->nodes[0].lon));
     for(int n=1;n<w->nodes.size();n++) {
-      path[7].lineTo((int)round(w->nodes.at(n).lon * sf), (int)round(w->nodes.at(n).lat * sf));
+      path[7].lineTo(toScreenCoordinates(w->nodes[n].lat, w->nodes[n].lon));
     }
   }
   delete ways;

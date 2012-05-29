@@ -21,8 +21,8 @@ class OsmWidget : public QGLWidget {
     bool renderFast;
     double lonCentre;
     double latCentre;
-    double wDegrees;
-    double hDegrees;
+    double degreePerPixelX;
+    double degreePerPixelY;
     QVector<QPainterPath> path;
     bool drawGrid;
     int gridType;
@@ -34,6 +34,7 @@ class OsmWidget : public QGLWidget {
     void translateView(int x, int y);
     void updateCache();
     void updatePaths();
+    QPointF toScreenCoordinates(double, double);
     
   public:
     OsmWidget(QWidget *parent=0);
@@ -49,6 +50,7 @@ class OsmWidget : public QGLWidget {
 
   signals:
     void locationUpdateText(QString loc);
+    void message(QString msg);
     
   protected:
     void paintEvent(QPaintEvent *event);
