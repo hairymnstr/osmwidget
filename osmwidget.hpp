@@ -58,6 +58,7 @@ class OsmWidget : public QGLWidget {
     void mousePressEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent *event);
     void resizeEvent(QResizeEvent *event);
+    void wheelEvent(QWheelEvent *event);
 };
 
 int calc_dist(double, double, double, double, double *, double *);

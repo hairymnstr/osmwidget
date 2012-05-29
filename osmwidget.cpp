@@ -359,6 +359,17 @@ void OsmWidget::enableCursorInfo(int flags) {
   tipFlags = flags;
 }
 
+void OsmWidget::wheelEvent(QWheelEvent *event) {
+  int numDegrees = event->delta() / 8;
+  int numSteps = numDegrees / 15;
+  int z;
+  
+  if(event->orientation() == Qt::Vertical) {
+    z = qMin(20, qMax(0, zoom + numSteps));
+    setZoom(z);
+  }
+}
+    
 /**
  * calc_dist - find the range and heading between two pairs of WGS84 co-ordinates
  *
